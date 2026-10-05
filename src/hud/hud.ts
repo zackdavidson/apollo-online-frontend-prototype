@@ -110,6 +110,7 @@ export class FlightHud {
   private readonly store = new InterfaceStore<InterfaceView>();
   private readonly tabs: ValueStore<readonly InventoryTab[]>;
   private readonly info = new ValueStore<HudInfo | null>(null);
+  private readonly itemIcons = new ValueStore<Readonly<Record<string, string>>>({});
   private lastInfoPush = -Infinity;
   private readonly mapBridge: MapWindowBridge;
   private mapCanvas: HTMLCanvasElement | null = null;
@@ -196,7 +197,7 @@ export class FlightHud {
       this.prompt,
       el('div', { className: 'hud hud-right-column' }, [el('div', { className: 'minimap-wrap' }, [this.minimap, expand]), this.status]),
     );
-    const services: HudServices<HudInfo, HudActions> = { interfaces: this.store, chat: this.chat, tabs: this.tabs, info: this.info, actions, controls: CONTROLS, map: this.mapBridge };
+    const services: HudServices<HudInfo, HudActions> = { interfaces: this.store, chat: this.chat, tabs: this.tabs, info: this.info, itemIcons: this.itemIcons, actions, controls: CONTROLS, map: this.mapBridge };
     this.interfaces = new InterfaceManager(root, this.store, services as HudServices);
     // The chat box and the side panel are open from the start; the rest open on demand.
     this.interfaces.open(INTERFACE_IDS.chat);
@@ -210,6 +211,11 @@ export class FlightHud {
   setHelpVisible(visible: boolean): void {
     if (visible) this.interfaces.open(INTERFACE_IDS.help);
     else this.interfaces.close(INTERFACE_IDS.help);
+  }
+
+  /** Item sprites as data URLs, keyed by item id; the inventory draws them. */
+  setItemIcons(urls: Readonly<Record<string, string>>): void {
+    this.itemIcons.set(urls);
   }
 
   /** A key hint above the weapon bar, e.g. "Space · Talk to Navigator"; null hides it. */

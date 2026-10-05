@@ -34,10 +34,10 @@ export const COMET_TUNING: CometTuning = {
   respawnDelay: 25,
   chunkEvery: 120,
   chunkCrystalChance: 0.35,
-  finalDrops: { ice: 40, crystal: 14, iron: 8 },
+  finalDrops: { ice: 40, crystal: 14, 'iron-ore': 8 },
 };
 
-export const COMET_RESOURCES: readonly ResourceKind[] = ['ice', 'crystal', 'iron'];
+export const COMET_RESOURCES: readonly ResourceKind[] = ['ice', 'crystal', 'iron-ore'];
 
 export interface CometState {
   readonly x: number;

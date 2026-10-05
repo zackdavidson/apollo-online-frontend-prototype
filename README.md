@@ -204,6 +204,36 @@ so rocks appear as you approach and vanish behind you exactly as they would
 when streamed from a server by interest radius. The minimap draws the full
 static list, which a client can download once with the map.
 
+### Items: one catalog for looks and behaviour
+
+Everything a ship fits, fires or picks up is an **item** in
+`src/game/items.ts`: weapons, mining tools and the stackable resources
+(`stone`, `iron-ore`, `ice`, `crystal`). Each entry is plain JSON-compatible
+data in two halves:
+
+- `visual`: a 3D model (an attachment from the parts catalog, or inline
+  primitives for things like ore), an accent colour, sprite framing hints,
+  and for weapons the look of their shots (`effect`: colour, size, muzzle
+  flash, trail, beam style). The client renders from this and nothing else;
+  `ItemCatalog.clientView()` strips the rest.
+- `behaviour`: what it does (projectile kind, group, damage, speed,
+  intervals, mining bonus, rock damage). The simulation reads this; the
+  weapon profiles in `game/weapons.ts` are derived from it, keyed by item
+  id, which is also the attachment id.
+
+`parseItemCatalog` validates a catalog arriving as JSON (a file or a server
+message) and insists the four resources exist. Drops are config too: each
+rock kind in `game/rocks.ts` has a drop table of item lines (`item`,
+`perRadius`, `flat`, `chance`), and the comet's payload names item ids.
+
+**Sprites, rendered once.** At start, `scene/itemSprites.ts` renders every
+item's model from a fixed three-quarter angle into a 96 px transparent
+image and keeps it as a texture and a data URL. Dropped items on the
+ground are billboard sprites of that image (one shared material per item,
+a pooled quad per drop), and the inventory tab shows the same images as
+icons with stack counts, so a stone on the floor, a stone in your hold and
+the stone a server describes are all the same item definition.
+
 ### Stances: friendly until provoked
 
 Every ship has a `stance`, `friendly` or `hostile` (`ShipSpec.stance`,
@@ -416,7 +446,7 @@ main window, then leaves flight.
   rock is mined out or respawns whole. Hovering a rock outlines it and shows a tooltip with its
   kind, size, health and drops; hovering the enemy does the same for it.
   Breaking a rock scatters resource pickups: ore, iron, ice or crystal,
-  scaled by the rock's size. Pickups drift, get pulled in within 16 units of
+  scaled by the rock's size, each a drop of the matching item. Pickups drift, get pulled in within 16 units of
   the ship and are collected on contact; the HUD shows cargo and its worth.
   The Mule's Mining Laser and Rock Drill work as short beams that deal heavy
   rock damage and double or triple the drops, while barely scratching ships.

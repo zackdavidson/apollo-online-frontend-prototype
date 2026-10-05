@@ -5,8 +5,9 @@ import { createRng } from './random';
 describe('LootField', () => {
   it('spawns pickups that drift apart and expire', () => {
     const field = new LootField(createRng(1), { lifetime: 2, magnetRange: 10, magnetAccel: 50, maxPullSpeed: 40, drag: 1, maxPickups: 100 });
-    field.spawn(0, 0, 'ore', 5);
-    expect(field.pickups).toHaveLength(5);
+    field.spawn(0, 0, 'stone', 5);
+    expect(field.pickups).toHaveLength(1);
+    expect(field.pickups[0]!.count).toBe(5);
     field.step(0.5, null);
     expect(field.pickups.every((p) => Math.hypot(p.x, p.z) > 0.5)).toBe(true);
     field.step(3, null);
@@ -27,13 +28,14 @@ describe('LootField', () => {
 
   it('leaves far pickups alone', () => {
     const field = new LootField(createRng(3));
-    field.spawn(200, 0, 'iron', 2);
+    field.spawn(200, 0, 'iron-ore', 2);
+    field.spawn(200, 0, 'iron-ore', 2);
     for (let t = 0; t < 2; t += 1 / 60) field.step(1 / 60, { x: 0, z: 0, radius: 2 });
     expect(field.pickups).toHaveLength(2);
     expect(field.pickups.every((p) => p.x > 150)).toBe(true);
   });
 
   it('values an inventory', () => {
-    expect(inventoryValue({ ore: 2, iron: 1, ice: 0, crystal: 1 })).toBe(2 + 3 + 10);
+    expect(inventoryValue({ stone: 2, 'iron-ore': 1, ice: 0, crystal: 1 })).toBe(2 + 3 + 10);
   });
 });

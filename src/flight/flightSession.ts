@@ -6,11 +6,12 @@ import { TurretAi, type ShipController } from '../game/controllers';
 import { formatHit } from '../game/damageRoll';
 import type { GameEvent } from '../game/events';
 import { speedOf } from '../game/flightController';
-import { RESOURCES, type ResourceKind } from '../game/loot';
+import { defaultItemCatalog } from '../game/items';
+import { RESOURCES } from '../game/loot';
 import { defaultResolvedMap, type ResolvedMap } from '../game/map';
 import { formatMapCoords } from '../game/mapCoords';
 import { shipToWorld, type WeaponMount } from '../game/projectiles';
-import { ROCK_KINDS, type Rock } from '../game/rocks';
+import { ROCK_KINDS, rockDropItems, type Rock } from '../game/rocks';
 import { WorldSim } from '../game/simulation';
 import { sampleWarp } from '../game/warp';
 import { WEAPON_GROUPS } from '../game/weapons';
@@ -201,6 +202,7 @@ export class FlightSession {
     this.input.attach();
     this.scene.camera.snapTo(map.spawn.x, map.spawn.z);
     this.message = { text: map.name, until: 3 };
+    this.hud.setItemIcons(this.scene.itemIconUrls());
     this.hud.chat.addMessage({ from: '', kind: 'system', text: `Welcome to ${map.name}. Press Enter to chat, Space to talk to ships, /help for controls.` });
     this.frameHandle = requestAnimationFrame(this.frame);
   }
@@ -320,7 +322,7 @@ export class FlightSession {
     this.scene.syncProjectiles(projectiles);
     this.scene.syncBeams(beams);
     this.scene.syncRocks(this.sim.rocks.inView(player.state.x, player.state.z, ROCK_VIEW_RADIUS), this.hovered?.kind === 'rock' ? this.hovered.rockId : null);
-    this.scene.syncLoot(this.sim.loot.pickups);
+    this.scene.syncLoot(this.sim.loot.pickups, this.hovered?.kind === 'pickup' ? this.hovered.pickup.id : null);
     this.scene.syncComet(this.sim.comet, this.hovered?.kind === 'comet');
     this.scene.setHazardHovered(this.hovered?.kind === 'hazard' ? this.hovered.hazard.id : null);
     this.scene.setHazardFocus(player.alive ? { x: player.state.x, z: player.state.z, radius: player.spec.radius * 2.4 } : null);
@@ -691,6 +693,17 @@ export class FlightSession {
         accent: COMET_ACCENT,
       };
     }
+    if (pick.kind === 'pickup') {
+      const { pickup } = pick;
+      const item = defaultItemCatalog().require(pickup.kind);
+      return {
+        title: pickup.count > 1 ? `${item.name} × ${pickup.count}` : item.name,
+        lines: [item.description, `worth ${item.value * pickup.count}${pickup.life === Infinity ? ' · cache' : ''}`],
+        x: pointerPx.x,
+        y: pointerPx.y,
+        accent: item.visual.colour,
+      };
+    }
     if (pick.kind === 'hazard') {
       const { hazard } = pick;
       return {
@@ -707,7 +720,7 @@ export class FlightSession {
     const size = rock.kind === 'giant' ? 'giant' : rock.radius >= 4 ? 'large' : rock.radius >= 2.5 ? 'medium' : 'small';
     return {
       title: `${info.label} rock`,
-      lines: [`${size} · ${Math.ceil(rock.hp)} / ${rock.maxHp} hp`, `drops ${info.resources.map((kind: ResourceKind) => RESOURCES[kind].label.toLowerCase()).join(', ')}`],
+      lines: [`${size} · ${Math.ceil(rock.hp)} / ${rock.maxHp} hp`, `drops ${rockDropItems(rock.kind).map((kind) => RESOURCES[kind].label.toLowerCase()).join(', ')}`],
       x: pointerPx.x,
       y: pointerPx.y,
       accent: ROCK_BAR_COLOURS[rock.kind],

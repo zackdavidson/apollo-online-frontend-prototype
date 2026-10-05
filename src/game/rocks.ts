@@ -21,16 +21,38 @@ export interface RockKindInfo {
   /** Crystal rocks carry glowing gem nodes. */
   readonly gems?: string;
   /** What breaking one yields, for tooltips. */
-  readonly resources: readonly ResourceKind[];
+  /** What breaking one yields: item counts scale with the rock's radius. */
+  readonly drops: readonly RockDrop[];
+}
+
+/**
+ * One line of a rock's drop table: `item` per unit of radius (`perRadius`),
+ * plus an optional flat roll (`flat` min..max), gated by `chance`.
+ */
+export interface RockDrop {
+  readonly item: ResourceKind;
+  readonly perRadius?: number;
+  readonly flat?: readonly [number, number];
+  readonly chance?: number;
 }
 
 export const ROCK_KINDS: Readonly<Record<RockKind, RockKindInfo>> = {
-  stone: { label: 'Stone', toughness: 1, colours: ['#7d7467', '#6e675e', '#8a7a68', '#5f5a55'], resources: ['ore'] },
-  iron: { label: 'Iron', toughness: 1.6, colours: ['#4f535c', '#5b5f68', '#43474f', '#6a6e78'], resources: ['iron', 'ore'] },
-  ice: { label: 'Ice', toughness: 0.7, colours: ['#bfe0f0', '#a9d2e8', '#d4ecf7', '#9cc6dd'], resources: ['ice'] },
-  crystal: { label: 'Crystal', toughness: 1.3, colours: ['#5a4a7a', '#6b5690', '#4c3f6b'], gems: '#c9a6ff', resources: ['crystal', 'ore'] },
-  giant: { label: 'Giant', toughness: 1.4, colours: ['#5c5247', '#4e463e', '#6b5f52'], resources: ['ore', 'iron', 'crystal'] },
+  stone: { label: 'Stone', toughness: 1, colours: ['#7d7467', '#6e675e', '#8a7a68', '#5f5a55'], drops: [{ item: 'stone', perRadius: 1.2 }] },
+  iron: { label: 'Iron', toughness: 1.6, colours: ['#4f535c', '#5b5f68', '#43474f', '#6a6e78'], drops: [{ item: 'iron-ore', perRadius: 1.0 }, { item: 'stone', perRadius: 0.4 }] },
+  ice: { label: 'Ice', toughness: 0.7, colours: ['#bfe0f0', '#a9d2e8', '#d4ecf7', '#9cc6dd'], drops: [{ item: 'ice', perRadius: 1.3 }] },
+  crystal: { label: 'Crystal', toughness: 1.3, colours: ['#5a4a7a', '#6b5690', '#4c3f6b'], gems: '#c9a6ff', drops: [{ item: 'crystal', perRadius: 0.7 }, { item: 'stone', perRadius: 0.4 }] },
+  giant: {
+    label: 'Giant',
+    toughness: 1.4,
+    colours: ['#5c5247', '#4e463e', '#6b5f52'],
+    drops: [{ item: 'stone', perRadius: 2.5 }, { item: 'iron-ore', perRadius: 1.0 }, { item: 'crystal', flat: [1, 3], chance: 0.6 }],
+  },
 };
+
+/** The distinct items a rock kind can drop, for tooltips. */
+export function rockDropItems(kind: RockKind): ResourceKind[] {
+  return [...new Set(ROCK_KINDS[kind].drops.map((drop) => drop.item))];
+}
 
 /** A rock as a map defines it: fixed position, kind, size, and whether it comes back. */
 export interface RockSpec {
@@ -159,24 +181,16 @@ export function hitPointsFor(radius: number, kind: RockKind = 'stone'): number {
 export type Drops = Partial<Record<ResourceKind, number>>;
 
 /** What a rock yields when it shatters; `bonus` scales it (mining tools). */
+/** Roll a rock's drop table: each line yields its items scaled by radius and the mining bonus, at least one when it fires. */
 export function dropsFor(rock: Rock, rng: Rng, bonus = 1): Drops {
-  const r = rock.radius;
-  const scaled = (value: number): number => Math.max(1, Math.round(value * bonus));
-  switch (rock.kind) {
-    case 'stone':
-      return { ore: scaled(r * 1.2) };
-    case 'iron':
-      return { iron: scaled(r * 1.0), ore: scaled(r * 0.4) };
-    case 'ice':
-      return { ice: scaled(r * 1.3) };
-    case 'crystal':
-      return { crystal: scaled(r * 0.7), ore: scaled(r * 0.4) };
-    case 'giant': {
-      const drops: Drops = { ore: scaled(r * 2.5), iron: scaled(r * 1.0) };
-      if (rng() < 0.6) drops.crystal = scaled(1 + rng() * 2);
-      return drops;
-    }
+  const drops: Drops = {};
+  for (const line of ROCK_KINDS[rock.kind].drops) {
+    if (line.chance !== undefined && rng() >= line.chance) continue;
+    const base = (line.perRadius ?? 0) * rock.radius + (line.flat ? line.flat[0] + rng() * (line.flat[1] - line.flat[0]) : 0);
+    const count = Math.max(1, Math.round(base * bonus));
+    drops[line.item] = (drops[line.item] ?? 0) + count;
   }
+  return drops;
 }
 
 /**

@@ -28,6 +28,9 @@ import { CameraRig, type CameraMode } from './cameraRig';
 import { CometVisual } from './cometVisual';
 import { EffectsSystem, createGlowTexture } from './effects';
 import { InstancedBars, type BarEntry } from './healthBars';
+import { createDefaultCatalog } from '../catalog/catalog';
+import { defaultItemCatalog } from '../game/items';
+import { ItemSpriteAtlas } from './itemSprites';
 import { LootRenderer } from './lootRenderer';
 import { createBoundary, createParallaxWorld, type ParallaxWorld } from './parallax';
 import { BACKGROUND_LAYER, OVERLAY_LAYER, Pixelator, type PixelScope } from './pixelate';
@@ -86,7 +89,9 @@ export class GameScene {
   private readonly world: ParallaxWorld;
   private readonly ships = new Map<string, ShipActor>();
   private readonly rockRenderer = new RockRenderer();
-  private readonly lootRenderer = new LootRenderer();
+  private readonly lootRenderer: LootRenderer;
+  /** Every item rendered once to a sprite; drops and inventory icons draw from it. */
+  readonly items: ItemSpriteAtlas;
   private readonly shotRenderer = new ProjectileRenderer();
   private readonly beamRenderer = new BeamRenderer();
   private readonly bars = new InstancedBars(MAX_HEALTH_BARS);
@@ -104,6 +109,7 @@ export class GameScene {
   private rocks: readonly Rock[] = [];
   private hoveredRockId: string | null = null;
   private pickups: readonly Pickup[] = [];
+  private hoveredPickupId: number | null = null;
   private projectiles: readonly Projectile[] = [];
   private beams: readonly BeamVisual[] = [];
   private comet: CometState | null = null;
@@ -124,6 +130,9 @@ export class GameScene {
     this.canvasHost.appendChild(this.renderer.domElement);
     this.scene.background = new Color(0x05060c);
     this.pixelator = new Pixelator(this.renderer);
+    this.items = new ItemSpriteAtlas(this.renderer, createDefaultCatalog(), defaultItemCatalog());
+    this.items.renderAll();
+    this.lootRenderer = new LootRenderer(this.items, OVERLAY_LAYER);
 
     this.scene.add(new HemisphereLight(0xbfd4ff, 0x1a1a24, 0.8));
     const key = new DirectionalLight(0xffffff, 2.1);
@@ -147,7 +156,7 @@ export class GameScene {
       this.rockRenderer.mesh,
       this.rockRenderer.gems,
       this.rockRenderer.outline,
-      this.lootRenderer.mesh,
+      this.lootRenderer.group,
       this.shotRenderer.group,
       this.beamRenderer.mesh,
       this.effects,
@@ -235,7 +244,8 @@ export class GameScene {
     this.hoveredRockId = hoveredRockId;
   }
 
-  syncLoot(pickups: readonly Pickup[]): void {
+  syncLoot(pickups: readonly Pickup[], hoveredId: number | null = null): void {
+    this.hoveredPickupId = hoveredId;
     this.pickups = pickups;
   }
 
@@ -255,6 +265,11 @@ export class GameScene {
   /** Beacons are static; set them once per map. */
   setBeacons(beacons: readonly Beacon[]): void {
     this.beacons.setBeacons(beacons);
+  }
+
+  /** Data URLs of every item's sprite, for DOM inventories and tooltips. */
+  itemIconUrls(): Readonly<Record<string, string>> {
+    return this.items.iconUrls();
   }
 
   /**
@@ -378,7 +393,7 @@ export class GameScene {
     this.effects.update(dt);
     for (const actor of this.ships.values()) actor.update(dt, time);
     this.rockRenderer.sync(this.rocks, time, this.hoveredRockId === null ? null : (this.rocks.find((rock) => rock.id === this.hoveredRockId) ?? null));
-    this.lootRenderer.sync(this.pickups, time);
+    this.lootRenderer.sync(this.pickups, time, this.hoveredPickupId);
     this.shotRenderer.sync(this.projectiles);
     this.beamRenderer.sync(this.beams, time);
     if (this.comet) this.cometVisual.update(this.comet, dt, time, this.cometHovered);
@@ -398,6 +413,7 @@ export class GameScene {
     this.world.dispose();
     this.rockRenderer.dispose();
     this.lootRenderer.dispose();
+    this.items.dispose();
     this.shotRenderer.dispose();
     this.beamRenderer.dispose();
     this.bars.dispose();

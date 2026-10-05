@@ -178,7 +178,9 @@ describe('WorldSim from a map', () => {
     );
     const sim = new WorldSim(resolved);
     expect(sim.comet.alive).toBe(false);
-    expect(sim.loot.pickups).toHaveLength(4);
+    expect(sim.loot.pickups).toHaveLength(1);
+    expect(sim.loot.pickups[0]!.count).toBe(4);
+    expect(sim.pick(sim.loot.pickups[0]!.x, sim.loot.pickups[0]!.z)).toMatchObject({ kind: 'pickup', pickup: { kind: 'crystal', count: 4 } });
     expect(sim.loot.pickups.every((pickup) => pickup.life === Infinity)).toBe(true);
     sim.addShip({ id: 'p', name: 'P', hullName: 'h', team: 't', radius: 3, weaponMounts: [], maxShield: 1, maxHull: 1, spawn: resolved.spawn, respawnDelay: 1, collectsLoot: true });
     sim.setInput('p', { thrust: 1, strafe: 0, boost: false, aim: null, fire: false });
@@ -248,7 +250,8 @@ describe('WorldSim from a map', () => {
     expect(destroyed).toMatchObject({ type: 'rock-destroyed', rock: { id: 'target' } });
     expect(sim.rocks.rocks).toHaveLength(0);
     expect(sim.rocks.snapshot(resolved.spawn.x, resolved.spawn.z, 100)).toEqual([]);
-    expect(sim.pick(rock.x, rock.z)).toBeNull();
+    // The rock is gone; what is left under the cursor is the stack it dropped, never the rock.
+    expect(sim.pick(rock.x, rock.z)?.kind).not.toBe('rock');
     sim.setInput('p', { thrust: 0, strafe: 0, boost: false, aim: null, fire: false });
     const later: GameEvent[] = [];
     for (let dt = 0; dt < 5.2; dt += 1 / 60) later.push(...sim.step(1 / 60));

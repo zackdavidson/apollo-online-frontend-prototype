@@ -1397,3 +1397,63 @@ body[data-mode='flight'] .flight {
   margin-top: 14px;
   font-size: 11px;
 }
+
+
+/* Inventory grid: item sprites with stack counts. */
+.cargo-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.cargo-slot {
+  position: relative;
+  aspect-ratio: 1;
+  border: 1px solid;
+  border-radius: 6px;
+  background: rgba(20, 26, 40, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.cargo-slot.empty {
+  opacity: 0.45;
+}
+
+.cargo-icon {
+  width: 80%;
+  height: 80%;
+  image-rendering: auto;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.7));
+  pointer-events: none;
+}
+
+.cargo-icon-fallback {
+  width: 40%;
+  height: 40%;
+  border-radius: 3px;
+}
+
+.cargo-badge {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffe9a8;
+  text-shadow: 0 0 3px #000, 0 0 3px #000;
+}
+
+.cargo-slot .cargo-name {
+  position: absolute;
+  bottom: 2px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 3px #000;
+}

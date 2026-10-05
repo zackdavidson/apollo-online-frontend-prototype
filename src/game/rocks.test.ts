@@ -134,12 +134,12 @@ describe('RockField', () => {
 
   it('drops resources matching the kind, scaled by a mining bonus', () => {
     const rng = createRng(5);
-    expect(dropsFor(rock({ kind: 'stone', radius: 5 }), rng)).toEqual({ ore: 6 });
+    expect(dropsFor(rock({ kind: 'stone', radius: 5 }), rng)).toEqual({ stone: 6 });
     expect(dropsFor(rock({ kind: 'crystal', radius: 4 }), rng).crystal).toBe(3);
     expect(dropsFor(rock({ kind: 'ice', radius: 3 }), rng, 2).ice).toBe(8);
     const giant = dropsFor(rock({ kind: 'giant', radius: 10 }), rng);
-    expect(giant.ore).toBe(25);
-    expect(giant.iron).toBe(10);
+    expect(giant.stone).toBe(25);
+    expect(giant['iron-ore']).toBe(10);
   });
 
   it('stops the ship against a rock instead of bouncing, and never moves the rock', () => {

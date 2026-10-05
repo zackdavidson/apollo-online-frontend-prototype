@@ -4,7 +4,7 @@ import type { BeamState } from './beam';
 import type { Vitals } from './combat';
 import type { ShipController } from './controllers';
 import type { FlightInput, FlightState, FlightTuning } from './flightController';
-import type { Inventory } from './loot';
+import type { Inventory, Pickup } from './loot';
 import type { ProjectilePool, WeaponMount } from './projectiles';
 import type { WarpPlan } from './warp';
 import type { WeaponGroup } from './weapons';
@@ -85,6 +85,7 @@ export interface ShipEntity {
 export type Pick =
   | { readonly kind: 'ship'; readonly ship: ShipEntity }
   | { readonly kind: 'rock'; readonly rockId: string }
+  | { readonly kind: 'pickup'; readonly pickup: Pickup }
   | { readonly kind: 'comet' }
   | { readonly kind: 'beacon'; readonly beacon: Beacon }
   | { readonly kind: 'hazard'; readonly hazard: Hazard }

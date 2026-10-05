@@ -181,7 +181,7 @@ export class WorldSim implements ControllerView {
     });
   }
 
-  /** What sits under a world point: the comet, a living ship, a beacon, a rock, or a hazard. */
+  /** What sits under a world point: the comet, a living ship, a beacon, a dropped stack, a rock, or a hazard. */
   pick(x: number, z: number): Pick {
     if (this.comet.alive && circleHit(x, z, this.comet.x, this.comet.z, this.comet.radius * 1.2)) return { kind: 'comet' };
     for (const ship of this.ships.values()) {
@@ -189,6 +189,8 @@ export class WorldSim implements ControllerView {
     }
     const beacon = this.beacons.at(x, z);
     if (beacon) return { kind: 'beacon', beacon };
+    const pickup = this.loot.at(x, z);
+    if (pickup) return { kind: 'pickup', pickup };
     const rock = this.rocks.hoverAt(x, z);
     if (rock) return { kind: 'rock', rockId: rock.id };
     const hazard = this.hazards.at(x, z);

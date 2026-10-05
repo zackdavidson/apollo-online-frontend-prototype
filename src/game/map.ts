@@ -383,7 +383,7 @@ function rockKind(value: unknown, path: string): RockKind {
   return value as RockKind;
 }
 
-const RESOURCE_NAMES: readonly ResourceKind[] = ['ore', 'iron', 'ice', 'crystal'];
+const RESOURCE_NAMES: readonly ResourceKind[] = ['stone', 'iron-ore', 'ice', 'crystal'];
 
 function resource(value: unknown, path: string): ResourceKind {
   if (typeof value !== 'string' || !RESOURCE_NAMES.includes(value as ResourceKind)) throw new MapParseError(path, `expected one of ${RESOURCE_NAMES.join(', ')}`);

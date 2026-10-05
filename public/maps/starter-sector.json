@@ -4228,7 +4228,7 @@
     "finalDrops": {
       "ice": 40,
       "crystal": 14,
-      "iron": 8
+      "iron-ore": 8
     },
     "enabled": true,
     "firstNearStart": true

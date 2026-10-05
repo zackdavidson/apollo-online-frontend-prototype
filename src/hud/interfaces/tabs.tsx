@@ -10,18 +10,30 @@ function useHudInfo(): HudInfo | null {
   return useStoreValue(info);
 }
 
+/** Old-school inventory: a grid of item sprites with stack counts, rendered once from each item's 3D model. */
 export function CargoTab() {
   const info = useHudInfo();
+  const { itemIcons } = useServices<HudInfo, HudActions>();
+  const icons = useStoreValue(itemIcons);
+  const held = RESOURCE_KINDS.filter((kind) => (info?.cargo[kind] ?? 0) > 0);
   return (
     <>
-      {RESOURCE_KINDS.map((kind) => (
-        <div key={kind} className="cargo-cell" style={{ borderColor: RESOURCES[kind].colour }}>
-          <div className="cargo-name" style={{ color: RESOURCES[kind].colour }}>
-            {RESOURCES[kind].label}
-          </div>
-          <div className="cargo-count">{info?.cargo[kind] ?? 0}</div>
-        </div>
-      ))}
+      {held.length === 0 ? <div className="muted">Hold empty. Mine a rock and fly over what it drops.</div> : null}
+      <div className="cargo-grid">
+        {held.map((kind) => {
+          const count = info?.cargo[kind] ?? 0;
+          const icon = icons[kind];
+          return (
+            <div key={kind} className="cargo-slot" title={`${RESOURCES[kind].label} × ${count}`} style={{ borderColor: RESOURCES[kind].colour }}>
+              {icon ? <img className="cargo-icon" src={icon} alt="" draggable={false} /> : <span className="cargo-icon-fallback" style={{ background: RESOURCES[kind].colour }} />}
+              <span className="cargo-badge">{count}</span>
+              <span className="cargo-name" style={{ color: RESOURCES[kind].colour }}>
+                {RESOURCES[kind].label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
       <div className="muted inv-footer">{info ? `worth ${inventoryValue(info.cargo)} · rocks broken ${info.rocksBroken}` : ''}</div>
     </>
   );

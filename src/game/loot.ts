@@ -1,13 +1,14 @@
+import { RESOURCE_KINDS, defaultItemCatalog, type ResourceKind } from './items';
 import { range, type Rng } from './random';
 
 /**
- * Resources dropped by rocks and the pickups that carry them. Pickups drift,
- * get pulled in when the ship is close, and are collected on contact.
+ * Dropped items and the pickups that carry them. Which items exist, what
+ * they are called and what they look like comes from the item catalog;
+ * this file only moves them about. Pickups drift, get pulled in when the
+ * ship is close, and are collected on contact.
  */
 
-export type ResourceKind = 'ore' | 'iron' | 'ice' | 'crystal';
-
-export const RESOURCE_KINDS: readonly ResourceKind[] = ['ore', 'iron', 'ice', 'crystal'];
+export { RESOURCE_KINDS, type ResourceKind };
 
 export interface ResourceInfo {
   readonly label: string;
@@ -16,17 +17,18 @@ export interface ResourceInfo {
   readonly value: number;
 }
 
-export const RESOURCES: Readonly<Record<ResourceKind, ResourceInfo>> = {
-  ore: { label: 'Ore', colour: '#d9b26a', value: 1 },
-  iron: { label: 'Iron', colour: '#9fb4c8', value: 3 },
-  ice: { label: 'Ice', colour: '#8fe3ff', value: 2 },
-  crystal: { label: 'Crystal', colour: '#d9a6ff', value: 10 },
-};
+/** Display facts for each stackable resource, straight from the item catalog. */
+export const RESOURCES: Readonly<Record<ResourceKind, ResourceInfo>> = Object.fromEntries(
+  RESOURCE_KINDS.map((kind) => {
+    const item = defaultItemCatalog().require(kind);
+    return [kind, { label: item.name, colour: item.visual.colour, value: item.value }];
+  }),
+) as Record<ResourceKind, ResourceInfo>;
 
 export type Inventory = Record<ResourceKind, number>;
 
 export function emptyInventory(): Inventory {
-  return { ore: 0, iron: 0, ice: 0, crystal: 0 };
+  return Object.fromEntries(RESOURCE_KINDS.map((kind) => [kind, 0])) as Inventory;
 }
 
 export function inventoryValue(inventory: Inventory): number {
@@ -36,6 +38,8 @@ export function inventoryValue(inventory: Inventory): number {
 export interface Pickup {
   readonly id: number;
   readonly kind: ResourceKind;
+  /** How many of the item this stack holds; collecting it takes them all. */
+  readonly count: number;
   x: number;
   z: number;
   vx: number;
@@ -72,22 +76,36 @@ export class LootField {
     private readonly tuning: LootTuning = DEFAULT_LOOT_TUNING,
   ) {}
 
-  /** Scatter `count` pickups of `kind` around a point. Pass `Infinity` as lifetime for permanent caches. */
+  /** Drop one stack of `count` × `kind` near a point, drifting outward. Pass `Infinity` as lifetime for permanent caches. */
   spawn(x: number, z: number, kind: ResourceKind, count: number, lifetime: number = this.tuning.lifetime): void {
-    for (let i = 0; i < count && this.pickups.length < this.tuning.maxPickups; i++) {
-      const angle = this.rng() * Math.PI * 2;
-      const speed = range(this.rng, 2, 7);
-      this.pickups.push({
-        id: this.nextId++,
-        kind,
-        x: x + Math.cos(angle) * 0.6,
-        z: z + Math.sin(angle) * 0.6,
-        vx: Math.cos(angle) * speed,
-        vz: Math.sin(angle) * speed,
-        life: lifetime * range(this.rng, 0.85, 1.0),
-        phase: this.rng() * Math.PI * 2,
-      });
+    if (count <= 0 || this.pickups.length >= this.tuning.maxPickups) return;
+    const angle = this.rng() * Math.PI * 2;
+    const speed = range(this.rng, 2, 7);
+    this.pickups.push({
+      id: this.nextId++,
+      kind,
+      count: Math.round(count),
+      x: x + Math.cos(angle) * 0.6,
+      z: z + Math.sin(angle) * 0.6,
+      vx: Math.cos(angle) * speed,
+      vz: Math.sin(angle) * speed,
+      life: lifetime * range(this.rng, 0.85, 1.0),
+      phase: this.rng() * Math.PI * 2,
+    });
+  }
+
+  /** The stack under a hovering cursor: nearest within a generous radius, or null. */
+  at(x: number, z: number, radius = 1.8): Pickup | null {
+    let best: Pickup | null = null;
+    let bestDistance = radius;
+    for (const pickup of this.pickups) {
+      const distance = Math.hypot(pickup.x - x, pickup.z - z);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = pickup;
+      }
     }
+    return best;
   }
 
   /** Move pickups, pull nearby ones in, and return what the collector picked up. */
@@ -106,7 +124,7 @@ export class LootField {
         const dz = collector.z - p.z;
         const distance = Math.hypot(dx, dz);
         if (distance <= collector.radius + 0.9) {
-          collected[p.kind] = (collected[p.kind] ?? 0) + 1;
+          collected[p.kind] = (collected[p.kind] ?? 0) + p.count;
           this.removeAt(i);
           continue;
         }

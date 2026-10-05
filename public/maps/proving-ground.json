@@ -228,7 +228,7 @@
     "finalDrops": {
       "ice": 40,
       "crystal": 14,
-      "iron": 8
+      "iron-ore": 8
     },
     "enabled": false,
     "firstNearStart": true
@@ -314,6 +314,15 @@
       "y": 430,
       "icon": "shop",
       "label": "Crystal cache",
+      "colour": null,
+      "onMinimap": true
+    },
+    {
+      "type": "icon",
+      "x": 445,
+      "y": 455,
+      "icon": "quest",
+      "label": "Navigator",
       "colour": null,
       "onMinimap": true
     },

@@ -38,6 +38,8 @@ export interface HudServices<Info = unknown, Actions = unknown> {
   readonly chat: ChatController;
   readonly tabs: ValueStore<readonly InventoryTab[]>;
   readonly info: ValueStore<Info | null>;
+  /** Item sprite data URLs by item id, rendered once by the scene. */
+  readonly itemIcons: ValueStore<Readonly<Record<string, string>>>;
   readonly actions: Actions;
   readonly controls: ReadonlyArray<readonly [string, string]>;
   readonly map: MapWindowBridge;

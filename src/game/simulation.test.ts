@@ -128,8 +128,8 @@ describe('WorldSim', () => {
     sim.setInput('p1', { ...IDLE_INPUT, fire: true, aim: [rock.x, rock.z] });
     const events = run(sim, 8);
     expect(events.some((e) => e.type === 'rock-destroyed' && e.rock.id === rock.id)).toBe(true);
-    expect(events.some((e) => e.type === 'pickup-collected' && e.kind === 'ore')).toBe(true);
-    expect(sim.getShip('p1')!.cargo.ore).toBeGreaterThan(0);
+    expect(events.some((e) => e.type === 'pickup-collected' && e.kind === 'stone')).toBe(true);
+    expect(sim.getShip('p1')!.cargo.stone).toBeGreaterThan(0);
   });
 
   it('warps a ship with blank-out, moving it only once covered', () => {

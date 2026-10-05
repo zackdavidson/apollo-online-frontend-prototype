@@ -1424,7 +1424,7 @@
     "finalDrops": {
       "ice": 40,
       "crystal": 14,
-      "iron": 8
+      "iron-ore": 8
     }
   },
   "objects": [
@@ -1459,7 +1459,7 @@
       "type": "cache",
       "x": 3300,
       "y": 700,
-      "resource": "iron",
+      "resource": "iron-ore",
       "count": 12
     },
     {
