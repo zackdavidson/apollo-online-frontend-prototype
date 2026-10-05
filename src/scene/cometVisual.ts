@@ -14,8 +14,8 @@ import {
   SpriteMaterial,
   type Texture,
 } from 'three';
-import type { CometState } from './comet';
-import type { Rng } from './random';
+import type { CometState } from '../game/comet';
+import type { Rng } from '../game/random';
 
 const TRAIL_PARTICLES = 900;
 const TRAIL_LIFE = 3.2;

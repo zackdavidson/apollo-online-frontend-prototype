@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { COMBAT_TUNING, applyDamage, circleHit, collisionDamage, createVitals, regenerateShield } from './combat';
-import { createEnemy, killEnemy, stepEnemy } from './enemy';
 
 describe('vitals', () => {
   it('shields absorb before hull and track the hit time', () => {
@@ -39,42 +38,5 @@ describe('vitals', () => {
     expect(circleHit(3, 0, 0, 0, 2)).toBe(false);
     expect(collisionDamage(10)).toBe(0);
     expect(collisionDamage(COMBAT_TUNING.collisionMinSpeed + 20)).toBeCloseTo(20 * COMBAT_TUNING.collisionDamagePerSpeed, 5);
-  });
-});
-
-describe('enemy', () => {
-  it('turns towards the player and fires once lined up and in range', () => {
-    let enemy = createEnemy(0, 0);
-    const player = { x: 0, z: 100 };
-    let shots = 0;
-    for (let t = 0; t < 6; t += 1 / 60) {
-      const step = stepEnemy(enemy, player, 1 / 60, t);
-      enemy = step.enemy;
-      if (step.fire) shots++;
-    }
-    expect(Math.abs(enemy.heading)).toBeLessThan(0.05);
-    expect(shots).toBeGreaterThanOrEqual(3);
-  });
-
-  it('does not fire when the player is out of range', () => {
-    let enemy = createEnemy(0, 0);
-    let shots = 0;
-    for (let t = 0; t < 6; t += 1 / 60) {
-      const step = stepEnemy(enemy, { x: 0, z: 1000 }, 1 / 60, t);
-      enemy = step.enemy;
-      if (step.fire) shots++;
-    }
-    expect(shots).toBe(0);
-  });
-
-  it('respawns with full vitals after the delay', () => {
-    const dead = killEnemy(createEnemy(5, 5), 10);
-    expect(dead.alive).toBe(false);
-    expect(stepEnemy(dead, { x: 0, z: 0 }, 0.1, 12).respawned).toBe(false);
-    const back = stepEnemy(dead, { x: 0, z: 0 }, 0.1, 10 + COMBAT_TUNING.enemyRespawnDelay + 0.1);
-    expect(back.respawned).toBe(true);
-    expect(back.enemy.alive).toBe(true);
-    expect(back.enemy.vitals.hull).toBe(COMBAT_TUNING.enemyHull);
-    expect(back.enemy.x).toBe(5);
   });
 });

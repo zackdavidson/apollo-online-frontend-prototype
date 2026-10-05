@@ -72,8 +72,8 @@ export class LootField {
     private readonly tuning: LootTuning = DEFAULT_LOOT_TUNING,
   ) {}
 
-  /** Scatter `count` pickups of `kind` around a point. */
-  spawn(x: number, z: number, kind: ResourceKind, count: number): void {
+  /** Scatter `count` pickups of `kind` around a point. Pass `Infinity` as lifetime for permanent caches. */
+  spawn(x: number, z: number, kind: ResourceKind, count: number, lifetime: number = this.tuning.lifetime): void {
     for (let i = 0; i < count && this.pickups.length < this.tuning.maxPickups; i++) {
       const angle = this.rng() * Math.PI * 2;
       const speed = range(this.rng, 2, 7);
@@ -84,7 +84,7 @@ export class LootField {
         z: z + Math.sin(angle) * 0.6,
         vx: Math.cos(angle) * speed,
         vz: Math.sin(angle) * speed,
-        life: this.tuning.lifetime * range(this.rng, 0.85, 1.0),
+        life: lifetime * range(this.rng, 0.85, 1.0),
         phase: this.rng() * Math.PI * 2,
       });
     }

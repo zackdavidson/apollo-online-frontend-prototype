@@ -20,63 +20,173 @@ npm run build      # type-check + production bundle in dist/
 
 ## How it fits together
 
+The code is split so that the game rules never touch Three.js or the DOM,
+and the visuals never read the simulation directly. That is the shape an
+online version needs: the simulation runs on a server (or headless in
+tests), clients send inputs and receive state plus events, and the scene
+draws whatever it is told.
+
 ```
 src/
-  core/        Pure domain model. No DOM, no Three.js.
-    vector.ts      Vec3, facing directions and the rotation used to mount parts
-    transform.ts   Small affine-matrix utilities (placement, mirroring, slot facing)
-    geometry.ts    Primitives (segment, wing) and their tessellation into triangles
-    primitives.ts  Readable constructors: box, taper, tube, cone, wing, plate
-    mesh.ts        SurfaceMesh (triangle soup with a role per triangle), bounds helpers
-    palette.ts     Palette roles, main + trim colours, fixed material colours, presets
-    types.ts       Hull, slot and attachment definitions; compatibility rule; stats
-    ship.ts        assembleShip(): hull + fitted parts -> one mesh + stats
-  catalog/     Hand-authored content, validated once at startup.
-    hulls/         Dart (fighter), Wedge (scout), Bastion (gunship), Mule (miner), Barge (hauler), Halo (explorer)
-    attachments/   thrusters, weapons, mining tools, cargo modules, utility parts
-    catalog.ts     Lookup + "which attachments fit this slot"
-  state/       Build state and reducers.
-    store.ts       Tiny observable store
-    shipState.ts   ShipState and pure transitions (hull, colours, fit, randomise)
-    serialization.ts  Share codes (base64url JSON) with catalog validation
-  render/      Three.js.
-    meshData.ts    SurfaceMesh -> BufferGeometry, and in-place recolouring
-    shipMesh.ts    Lit mesh + additive glow mesh + optional crease outline
-    slotMarkers.ts Translucent boxes marking mount points, with raycast picking
-    sceneView.ts   Renderer, camera, orbit controls, lights, pointer events
-  flight/      Flying the built ship.
-    flightController.ts  Pure arcade physics on the XZ plane (thrust, strafe, drag, aim, bounds)
-    weapons.ts           Per-weapon fire profiles (tracer, beam, missile, plasma, pellet)
-    projectiles.ts       Pure projectile pool; every mount fires on its own cooldown
-    projectileRenderer.ts Instanced boxes and orbs coloured per weapon
-    cameraRig.ts         Tilted follow camera with perspective and orthographic variants
-    parallax.ts          Depth layers: twinkling star sprites, PNG planets / moons / nebulae / sun, boundary
-    spaceAssets.ts       Manifest + cached loader for the PNGs in public/assets/space
-    rocks.ts             Pure rock field: kinds, drift, grid hit tests, splitting, drops, ship collision
-    rockRenderer.ts      All rocks as one instanced mesh, glowing gems on crystal rocks, hover outline
-    healthBars.ts        Instanced billboard health bars (used for rocks)
-    loot.ts              Resource pickups: drift, magnet pull, collection, inventory
-    comet.ts             The shooting star: spawn, travel, mining, respawn, ship collision
-    warp.ts              Minimap warp plan: spool-up, blank-out, distance-scaled tunnel, fade-in
-    warpTunnel.ts        Canvas hyperspace tunnel overlay
-    cometVisual.ts       Glowing head, particle tail and hover outline for the comet
-    lootRenderer.ts      Pickups as instanced glowing octahedra
-    pixelate.ts          Pixelation post-process with 3D-only and whole-frame scopes
-    combat.ts            Shield / hull vitals, damage, regeneration, collision damage
-    damageRoll.ts        Per-hit variance: normal, glancing and critical rolls
-    hitMarkers.ts        Floating damage numbers with hit marks (DOM, never pixelated)
-    markerLayout.ts      Pure overlap-free placement for screen labels
-    enemy.ts             A static enemy that tracks the player and returns fire; respawns
-    labels.ts            Floating nametags with shield and hull bars (DOM, projected)
-    effects.ts           Debris chips, impact flashes, shield-bubble texture
-    input.ts             Keyboard / pointer tracking -> FlightInput
-    hud.ts               Readouts, score, camera toggle, controls hint, minimap
-    flightView.ts        Owns the flight renderer and ties the above together
+  core/        Ship model: primitives, meshes, palette, assembly. No DOM, no Three.js.
+  catalog/     Hand-authored hulls and attachments, validated at startup.
+  state/       Hangar build state, reducers, share codes.
+  render/      Three.js ship mesh used by both the hangar and the flight scene.
+  ui/          Hangar side panel (plain DOM).
+
+  game/        PURE SIMULATION. No rendering, no DOM; runs headless.
+    simulation.ts  WorldSim: ships by id, rocks, loot, comet, beacons; step(dt) -> GameEvent[]
+    map.ts         MapDefinition JSON schema, parseMapDefinition (validation), resolveMap
+    beacons.ts     Beacon markers and the enter-once tracker
+    world.ts       ShipSpec / ShipEntity / Pick types
+    events.ts      GameEvent union: everything the outside world reacts to
+    controllers.ts ShipController interface, TurretAi, IdleController
+    flightController.ts, projectiles.ts, beam.ts, combat.ts, damageRoll.ts,
+    rocks.ts, loot.ts, comet.ts, warp.ts, weapons.ts, mapCoords.ts, random.ts
+
+  scene/       VISUALS behind an API (GameScene). Knows nothing about the simulation.
+    gameScene.ts   addShip/removeShip/setShipPose, syncRocks/Loot/Projectiles/Beams/Comet,
+                   flash/burst/shockwave/explode, camera, pixelation, aimPoint/project
+    shipActor.ts   hull mesh + shield shell + hover outline for one ship
+    cameraRig.ts, parallax.ts, spaceAssets.ts, pixelate.ts, effects.ts, shieldShell.ts,
+    beamRenderer.ts, projectileRenderer.ts, rockRenderer.ts, lootRenderer.ts,
+    cometVisual.ts, healthBars.ts, warpTunnel.ts, beaconRenderer.ts
+
+  hud/         DOM overlays and input: hud.ts, labels.ts, hitMarkers.ts, markerLayout.ts, input.ts
+
+  flight/
+    flightSession.ts  The only glue: input -> sim.step -> events -> scene/HUD. spawnNpc() API.
+  main.ts      Hangar wiring plus entering/leaving a flight session.
   tools/
     generate-space-assets.py  Renders the background PNGs (pure Python, no dependencies)
-  ui/          Plain DOM side panel (no framework).
-  main.ts      Wires store -> scene + panel, the URL hash share link, and flight mode.
 ```
+
+### The three layers in one frame
+
+1. `FlightInputTracker` turns keys and pointer into a `FlightInput`;
+   `FlightSession` hands it to `WorldSim.setInput(playerId, input)`.
+2. `WorldSim.step(dt)` advances every ship (players through their input,
+   NPCs through their `ShipController`), projectiles, beams, rocks, loot and
+   the comet, and returns `GameEvent`s: shots fired, hits with rolled damage,
+   ships damaged / destroyed / respawned, rocks broken, pickups collected,
+   warp phases, comet lifecycle.
+3. `FlightSession` maps events to `GameScene` effects and HUD messages and
+   markers, then pushes the new state into the scene (`setShipPose`,
+   `syncRocks`, ...) and renders.
+
+### Adding NPCs
+
+`FlightSession.spawnNpc({ name, hullName, surface, colours, weaponMounts, x, z, ... })`
+registers a ship in the simulation (team, radius, vitals, respawn, an AI
+controller) and in the scene (mesh, shield, outline, label) and returns its
+id; `removeShip(id)` takes it out again. Ships are keyed by id everywhere,
+so a networked client would call the same scene methods from a server
+snapshot. At the simulation level the same thing is `WorldSim.addShip(spec)`
+with any `ShipController`; `TurretAi` is the stationary guard, `IdleController`
+a prop. New behaviours are new controllers.
+
+### Maps as JSON
+
+A sector is a `MapDefinition` (`src/game/map.ts`): plain JSON in map
+coordinates ((0, 0) bottom-left, x right, y up, both `0..size`). Load one
+with `?map=name` (fetches `public/maps/name.json`), with the hangar's "Load
+map JSON" button, or pass a parsed definition to `FlightSession` as `map`.
+Every section is optional and falls back to the starter sector; wrong types
+fail with a path like `map.objects[2].kind`. "Save default as JSON" in the
+hangar writes the starter sector out as a starting point, and
+`public/maps/example-arena.json` is a small hand-made map.
+
+```jsonc
+{
+  "version": 1,
+  "name": "Iron Ring Arena",
+  "size": 4000,                      // square side in world units
+  "seed": 7,                         // drives visuals and the optional rock generator
+  "spawn": { "x": 2000, "y": 2000, "heading": 0 },
+  "scenery": {
+    "stars":   [ { "kind": "field", "depth": -3200, "tile": 5000, "count": 2600,
+                   "sizeWorld": 14, "sizePx": 1.6, "brightness": 0.55 } ],   // optional
+    "planets": [ { "art": "planet-lava-01", "x": 3200, "y": 3000, "depth": -2200,
+                   "radius": 420, "rotation": 0.3 } ],                       // art = file name in public/assets/space
+    "sun":     { "x": -1500, "y": 3800, "depth": -7000, "size": 6000 },      // or null
+    "nebulae": [ { "art": "nebula-03", "x": 2000, "y": 5000, "depth": -6000, "size": 7000,
+                   "tint": "#8c2a5a", "opacity": 0.5, "rotation": 1.2 } ],
+    "band":    null                                                           // galactic band sprite, or null
+  },
+  "rocks": [                                                                  // every rock, explicitly
+    { "id": "rock-0001", "x": 2300, "y": 2300, "kind": "crystal", "radius": 4, "respawn": 90 },
+    { "id": "big-one",   "x": 700,  "y": 3300, "kind": "giant",   "radius": 12, "respawn": null }  // null: never comes back
+  ],
+  "comet": { "enabled": true, "maxHp": 1200, "speed": 10, "respawnDelay": 15 },  // null/false disables; any CometTuning field
+  "objects": [
+    { "type": "cache",  "x": 2000, "y": 2080, "resource": "crystal", "count": 6 },  // permanent pickups
+    { "type": "beacon", "id": "north-gate", "x": 2000, "y": 3600, "label": "North Gate",
+      "description": "Checkpoint one", "colour": "#6fd3ff", "radius": 14 }           // fires beacon-reached
+  ]
+}
+```
+
+Rock kinds: `stone`, `iron`, `ice`, `crystal`, `giant`. Resources: `ore`,
+`iron`, `ice`, `crystal`. Depths are negative (below the ship plane); deeper
+means slower parallax. `resolveMap` converts to world coordinates and the
+same `ResolvedMap` feeds both `WorldSim` (rocks, caches, beacons, comet) and
+`GameScene` (scenery). NPCs are deliberately not part of a map; they are
+spawned through `FlightSession.spawnNpc` so a server can own them.
+
+#### Rocks are records, not clusters
+
+The map is static and every rock is its own record with a stable `id`, so a
+server can key rock state on it: health, whether it is currently mined out,
+and when it returns. `id` defaults to `rock-0001`, `rock-0002`, ... by
+position in the list; `kind` defaults to `stone`, `radius` to 3 and
+`respawn` to 120 seconds. There is no procedural fill at runtime: the sim
+builds its `RockField` straight from the list, positions never change, and
+a depleted rock keeps its record (health 0) until its respawn time, when it
+comes back as the same rock and the sim emits `rock-respawned`.
+
+Writing hundreds of rocks by hand is tedious, so the parser accepts an
+authoring recipe in place of the list:
+
+```jsonc
+"rocks": { "generate": {
+  "clusters": [ { "x": 2000, "y": 2600, "radius": 180, "count": 30, "kind": "iron", "crystalChance": 0 } ],
+  "giants":   [ { "x": 700, "y": 3300, "radius": 12 } ],
+  "scatter":  { "clusters": 4, "perCluster": 50, "clusterRadius": 320, "keepClear": 180, "giants": 2 }, // or null
+  "respawn":  90
+} }
+```
+
+The recipe is expanded deterministically from `seed` **at parse time**
+(`generateMapRocks`), and only the explicit list exists in the parsed
+`MapDefinition`. "Save map as JSON" in the hangar writes that list, which is
+how a recipe gets baked into a file a server can hold: load it, save it,
+hand-edit ids or positions as you like. Both files in `public/maps/` are
+already explicit.
+
+What the client sees is also server-shaped. `RockField.inView(x, z, r)` and
+`RockField.snapshot(x, z, r)` return only the alive rocks near a point, and
+`FlightSession` pushes just those to the scene (340 units around the player),
+so rocks appear as you approach and vanish behind you exactly as they would
+when streamed from a server by interest radius. The minimap draws the full
+static list, which a client can download once with the map.
+
+### Toward online play
+
+- The server owns a `WorldSim`. Clients send `FlightInput` (and warp /
+  weapon-group requests); the server steps at a fixed rate and broadcasts a
+  snapshot of `ShipEntity` state plus the `GameEvent` list for that tick.
+- Rocks need no per-tick traffic: the client has the static list from the
+  map, and the server sends `RockSnapshot`s (id, position, health) for rocks
+  entering a player's interest radius, plus `rock-damaged`, `rock-destroyed`
+  and `rock-respawned` events for ones already in view.
+- Clients run `GameScene` + HUD from snapshots. `FlightSession` already
+  separates "apply events" from "push state", so a `NetworkSession` can
+  replace the local `WorldSim` with a snapshot stream and keep everything
+  else. Client-side prediction would run a local `WorldSim` for the player's
+  own ship and reconcile.
+- Nothing in `game/` imports from `scene/`, `hud/` or `three`; keep it that
+  way. Visual-only data (colours, meshes) lives in `SessionShip` /
+  `ShipVisualSpec`, gameplay data in `ShipSpec`.
 
 ### Key ideas
 
@@ -153,11 +263,13 @@ src/
   when you are in range. Kill it and it respawns after eight seconds; die
   and you respawn at the start. Kills and deaths are on the HUD; all numbers
   live in `flight/combat.ts`.
-- **Rocks and mining.** Asteroid clusters sit fixed on the ship plane, each
-  dominated by a kind: stone, iron (tough, dark), ice (fragile, pale),
-  crystal (violet with glowing gem nodes) and a few rare giants (radius 8 to
-  13). Rocks never move and never split: a depleted rock vanishes and drops
-  its resources. Each has a health pool in damage
+- **Rocks and mining.** Every rock is an explicit map record with a stable
+  id, fixed on the ship plane, one of stone, iron (tough, dark), ice
+  (fragile, pale), crystal (violet with glowing gem nodes) or giant (radius 8
+  to 13). Rocks never move and never split: a depleted rock vanishes, drops
+  its resources and returns after its respawn delay (120 s by default, or
+  never). Only rocks within 340 units of the player are drawn, the same set
+  a server would stream. Each has a health pool in damage
   points (roughly 10 + 12 per unit of radius, times the kind's toughness;
   giants into the hundreds), shown as a small billboard bar above every rock
   near the ship. Hovering a rock outlines it and shows a tooltip with its

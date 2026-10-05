@@ -14,7 +14,7 @@ import {
   Sprite,
   SpriteMaterial,
 } from 'three';
-import type { Rng } from './random';
+import type { Rng } from '../game/random';
 
 const MAX_DEBRIS = 1500;
 const DEBRIS_LIFE = 0.9;

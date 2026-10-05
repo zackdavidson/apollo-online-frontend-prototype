@@ -698,3 +698,12 @@ body[data-mode='flight'] .flight {
   text-transform: uppercase;
   opacity: 0.9;
 }
+
+.map-name {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.map-status {
+  font-size: 12px;
+}

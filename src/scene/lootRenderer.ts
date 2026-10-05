@@ -1,5 +1,5 @@
 import { AdditiveBlending, Color, InstancedMesh, Matrix4, MeshBasicMaterial, OctahedronGeometry, Quaternion, Vector3 } from 'three';
-import { RESOURCES, type Pickup } from './loot';
+import { RESOURCES, type Pickup } from '../game/loot';
 
 const MAX_PICKUPS = 400;
 

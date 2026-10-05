@@ -1,4 +1,4 @@
-import type { Rng } from './random';
+import type { Rng } from '../game/random';
 
 interface Streak {
   angle: number;

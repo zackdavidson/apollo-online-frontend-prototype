@@ -14,8 +14,9 @@ import {
 } from './state/shipState';
 import { resolveParts } from './state/shipState';
 import { Store } from './state/store';
-import { FlightView } from './flight/flightView';
-import { WEAPON_PROFILES, weaponProfileFor } from './flight/weapons';
+import { FlightSession, type SessionShip } from './flight/flightSession';
+import { MapParseError, defaultMapDefinition, parseMapDefinition, resolveMap, type MapDefinition } from './game/map';
+import { WEAPON_PROFILES, weaponProfileFor } from './game/weapons';
 import { SceneView } from './render/sceneView';
 import { BuilderPanel } from './ui/panel';
 
@@ -69,48 +70,81 @@ const panel = new BuilderPanel(
     toggleSlotMarkers: (visible) => scene.setSlotMarkersVisible(visible),
     toggleOutline: (visible) => scene.setOutlineVisible(visible),
     flyShip: () => enterFlight(),
+    loadMapFile: async (file) => tryLoadMap(await file.text()),
+    resetMap: () => setMap(defaultMapDefinition()),
+    // Saves the map that will fly next. A parsed map always holds every rock
+    // explicitly (any "generate" recipe was expanded on load), so this is also
+    // how an authored recipe gets baked into a server-ready file.
+    downloadMap: () => {
+      const blob = new Blob([JSON.stringify(currentMap, null, 2), '\n'], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${currentMap.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'map'}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    },
   },
   { onSlotHover: (slotId) => scene.highlightSlot(slotId) },
 );
 
-let flight: FlightView | null = null;
+let flight: FlightSession | null = null;
+let currentMap: MapDefinition = defaultMapDefinition();
 
-/** Hand the screen to the flight view with the current build. */
-function enterFlight(): void {
-  if (flight) return;
-  const state = store.get();
-  const ship = assembleFromState(state, catalog);
+function setMap(map: MapDefinition): void {
+  currentMap = map;
+  panel.setMapName(map.name);
+}
+
+/** Parse untrusted JSON text into a map, returning an error message instead of throwing. */
+function tryLoadMap(text: string): string | null {
+  try {
+    setMap(parseMapDefinition(JSON.parse(text) as unknown));
+    return null;
+  } catch (error) {
+    return error instanceof MapParseError || error instanceof SyntaxError ? error.message : String(error);
+  }
+}
+
+/** `?map=name` loads public/maps/name.json; `?map=https://...` loads a full URL. */
+async function loadMapFromQuery(): Promise<void> {
+  const name = new URLSearchParams(window.location.search).get('map');
+  if (!name) return;
+  const url = /^https?:\/\//.test(name) ? name : `${import.meta.env.BASE_URL}maps/${name}.json`;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+    const error = tryLoadMap(await response.text());
+    if (error) console.warn(`Map "${name}" rejected: ${error}`);
+  } catch (error) {
+    console.warn(`Map "${name}" could not be fetched:`, error);
+  }
+}
+
+/** Turn a hangar build into the looks-plus-loadout bundle the flight session wants. */
+function sessionShip(state: ShipState, name: string): SessionShip {
+  const hull = catalog.getHull(state.hullId);
   const weaponMounts = resolveParts(state, catalog)
     .filter((part) => part.attachment.category === 'weapon' || part.attachment.id in WEAPON_PROFILES)
     .map((part) => ({ position: part.slot.position, weapon: weaponProfileFor(part.attachment.id) }));
-  const enemyHull = catalog.getHull('hull-gunship');
-  const enemyState = createShipState(enemyHull, { main: '#5a2d2d', trim: '#e8e0c9' });
-  const enemyShip = assembleFromState(enemyState, catalog);
-  const enemyMounts = resolveParts(enemyState, catalog)
-    .filter((part) => part.attachment.category === 'weapon')
-    .map((part) => ({ position: part.slot.position, weapon: weaponProfileFor(part.attachment.id) }));
+  return { name, hullName: `${hull.name} ${hull.role.toLowerCase()}`, surface: assembleFromState(state, catalog).mesh, colours: state.colours, weaponMounts };
+}
+
+/** Hand the screen to the flight session with the current build and a raider to fight. */
+function enterFlight(): void {
+  if (flight) return;
+  const state = store.get();
+  const raider = createShipState(catalog.getHull('hull-gunship'), { main: '#5a2d2d', trim: '#e8e0c9' });
   scene.setActive(false);
   document.body.dataset['mode'] = 'flight';
-  flight = new FlightView(
-    flightRoot!,
-    {
-      player: {
-        name: `${catalog.getHull(state.hullId).name} (you)`,
-        hullName: `${catalog.getHull(state.hullId).name} ${catalog.getHull(state.hullId).role.toLowerCase()}`,
-        surface: ship.mesh,
-        colours: state.colours,
-        weaponMounts,
-      },
-      enemy: {
-        name: 'Raider',
-        hullName: `${enemyHull.name} ${enemyHull.role.toLowerCase()}`,
-        surface: enemyShip.mesh,
-        colours: enemyState.colours,
-        weaponMounts: enemyMounts,
-      },
-    },
-    { onExit: exitFlight },
-  );
+  const map = resolveMap(currentMap);
+  flight = new FlightSession(flightRoot!, {
+    player: sessionShip(state, `${catalog.getHull(state.hullId).name} (you)`),
+    // The raider sits a little ahead and to the side of wherever the map spawns the player.
+    npcs: [{ ...sessionShip(raider, 'Raider'), x: map.spawn.x + 70, z: map.spawn.z + 95 }],
+    map,
+    onExit: exitFlight,
+  });
 }
 
 function exitFlight(): void {
@@ -154,3 +188,5 @@ function sync(state: ShipState, previous: ShipState | null): void {
 
 store.subscribe((state, previous) => sync(state, previous));
 sync(store.get(), null);
+panel.setMapName(currentMap.name);
+void loadMapFromQuery();

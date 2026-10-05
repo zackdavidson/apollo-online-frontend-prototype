@@ -1,6 +1,6 @@
 import { Vector3, type Camera } from 'three';
 import { el } from '../ui/dom';
-import type { HitKind } from './damageRoll';
+import type { HitKind } from '../game/damageRoll';
 import { layoutMarkers, type LayoutItem } from './markerLayout';
 
 /** What took the hit, which sets the colour. */

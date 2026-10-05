@@ -12,9 +12,12 @@ import {
   SpriteMaterial,
   type IUniform,
 } from 'three';
+import type { ResolvedScenery, StarLayerSpec } from '../game/map';
+import { pick, range, type Rng } from '../game/random';
 import type { CameraMode } from './cameraRig';
-import { pick, range, type Rng } from './random';
-import { MOON_ART, NEBULA_FILES, PLANET_ART, STAR_SPRITE_FILE, SUN_SPRITE_FILE, spaceTexture, type PlanetArt } from './spaceAssets';
+import { MOON_ART, PLANET_ART, STAR_SPRITE_FILE, SUN_SPRITE_FILE, spaceTexture, type PlanetArt } from './spaceAssets';
+
+export type { StarLayerSpec };
 
 /**
  * Parallax background, entirely 2D: star point sprites and PNG billboards for
@@ -37,40 +40,6 @@ export function parallaxFactor(cameraHeight: number, depth: number): number {
 export function tileOrigin(coord: number, tile: number): number {
   return Math.floor(coord / tile) * tile;
 }
-
-export interface StarLayerSpec {
-  readonly kind: 'field' | 'clusters';
-  readonly depth: number;
-  /** Tile edge length; 3x3 tiles are kept around the camera. */
-  readonly tile: number;
-  readonly count: number;
-  /** Number of clumps per tile for the 'clusters' kind. */
-  readonly clusters?: number;
-  /** Point size in world units for the perspective camera (which attenuates with distance). */
-  readonly sizeWorld: number;
-  /** Point size in pixels for the orthographic camera (no attenuation). */
-  readonly sizePx: number;
-  /** Peak brightness multiplier; twinkle dips well below it. */
-  readonly brightness: number;
-}
-
-/**
- * Starfields sit far below everything else, so they are the slowest-moving
- * thing on screen: a dense faint field, a medium field, clustered clumps and
- * a sparse scatter of bright coloured giants.
- */
-export const STAR_LAYERS: readonly StarLayerSpec[] = [
-  { kind: 'field', depth: -3200, tile: 5000, count: 2600, sizeWorld: 14, sizePx: 1.6, brightness: 0.55 },
-  { kind: 'clusters', depth: -3800, tile: 6000, count: 1400, clusters: 7, sizeWorld: 17, sizePx: 1.8, brightness: 0.7 },
-  { kind: 'field', depth: -4200, tile: 6500, count: 900, sizeWorld: 25, sizePx: 2.4, brightness: 0.9 },
-  { kind: 'field', depth: -5200, tile: 8000, count: 180, sizeWorld: 42, sizePx: 3.4, brightness: 1.3 },
-];
-
-/** Planets live well below the play plane so they loom large but barely move; stars sit below them. */
-export const PLANET_DEPTHS = { hero: -2400, heroMoon: -2100, far: -2800, gas: -2600, farMoon: -2000 } as const;
-export const SUN_DEPTH = -7000;
-export const NEBULA_DEPTH = -6000;
-export const BAND_DEPTH = -6500;
 
 /** Approximate stellar colours, weighted towards the common yellow-white. */
 const STAR_COLOURS: ReadonlyArray<readonly [string, number]> = [
@@ -258,8 +227,6 @@ export interface ParallaxWorld {
   dispose(): void;
 }
 
-const NEBULA_TINTS = ['#6a3fb0', '#2a7a8c', '#8c2a5a', '#2f5fa8'];
-
 /** A PNG billboard that stays hidden until its texture has arrived. */
 function billboard(file: string, size: number, options: { tint?: string; opacity?: number; additive?: boolean; rotation?: number } = {}): {
   sprite: Sprite;
@@ -283,8 +250,14 @@ function billboard(file: string, size: number, options: { tint?: string; opacity
   return { sprite, material };
 }
 
-/** Build the whole background for a square map of `halfExtent` half size. */
-export function createParallaxWorld(rng: Rng, halfExtent: number): ParallaxWorld {
+/** Look up planet or moon art by name, falling back to the first planet. */
+function planetArt(name: string): PlanetArt {
+  const all = [...PLANET_ART, ...MOON_ART];
+  return all.find((art) => art.file === `${name}.png` || art.file === name) ?? PLANET_ART[0]!;
+}
+
+/** Build the whole background for a square map from a resolved scenery definition. */
+export function createParallaxWorld(rng: Rng, _halfExtent: number, scenery: ResolvedScenery): ParallaxWorld {
   const layers: ParallaxLayer[] = [];
   const layerAt = (depth: number): ParallaxLayer => {
     let layer = layers.find((candidate) => candidate.depth === depth);
@@ -296,55 +269,40 @@ export function createParallaxWorld(rng: Rng, halfExtent: number): ParallaxWorld
   };
   const disposables: { dispose(): void }[] = [];
 
-  for (const spec of STAR_LAYERS) layerAt(spec.depth).addStars(new TiledStars(spec, rng));
+  for (const spec of scenery.stars) layerAt(spec.depth).addStars(new TiledStars(spec, rng));
 
-  // A handful of planets and moons, very deep and slightly dimmed so they
-  // sit behind the action rather than compete with it.
+  // Planets and moons as dimmed billboards so they sit behind the action.
   const planetPositions: Array<readonly [number, number]> = [];
-  const placePlanet = (x: number, z: number, depth: number, radius: number, art: PlanetArt): void => {
-    const { sprite, material } = billboard(art.file, (2 * radius) / art.discFraction, {
-      rotation: range(rng, -0.5, 0.5),
-      tint: '#b4bccb',
-      opacity: 0.85,
-    });
+  for (const planet of scenery.planets) {
+    const art = planetArt(planet.art);
+    const { sprite, material } = billboard(art.file, (2 * planet.radius) / art.discFraction, { rotation: planet.rotation, tint: '#b4bccb', opacity: 0.85 });
     disposables.push(material);
-    sprite.position.set(x, depth, z);
-    layerAt(depth).add(sprite);
-    planetPositions.push([x, z]);
-  };
-  placePlanet(680, 430, PLANET_DEPTHS.hero, 380, PLANET_ART[0]!);
-  placePlanet(520, 300, PLANET_DEPTHS.heroMoon, 60, MOON_ART[0]!);
-  placePlanet(-1700, -1400, PLANET_DEPTHS.far, 500, PLANET_ART[2]!);
-  placePlanet(3200, -1800, PLANET_DEPTHS.gas, 420, PLANET_ART[1]!);
-  placePlanet(3000, -1500, PLANET_DEPTHS.farMoon, 70, MOON_ART[1]!);
+    sprite.position.set(planet.x, planet.depth, planet.z);
+    layerAt(planet.depth).add(sprite);
+    planetPositions.push([planet.x, planet.z]);
+  }
 
-  // A distant, soft sun.
-  const sun = billboard(SUN_SPRITE_FILE, 7000, { additive: true, opacity: 0.85 });
-  disposables.push(sun.material);
-  sun.sprite.position.set(-4500, SUN_DEPTH, 3500);
-  layerAt(SUN_DEPTH).add(sun.sprite);
+  if (scenery.sun) {
+    const sun = billboard(SUN_SPRITE_FILE, scenery.sun.size, { additive: true, opacity: 0.85 });
+    disposables.push(sun.material);
+    sun.sprite.position.set(scenery.sun.x, scenery.sun.depth, scenery.sun.z);
+    layerAt(scenery.sun.depth).add(sun.sprite);
+  }
 
-  // A faint galactic band across the sky.
-  const band = billboard(NEBULA_FILES[1]!, 9000, { tint: '#8fa6d8', opacity: 0.22, additive: true, rotation: 0.55 });
-  disposables.push(band.material);
-  band.sprite.scale.set(9000 * 3.4, 9000 * 0.8, 1);
-  band.sprite.position.set(1500, BAND_DEPTH, 2500);
-  layerAt(BAND_DEPTH).add(band.sprite);
+  if (scenery.band) {
+    const band = billboard(`${scenery.band.art}.png`, scenery.band.width, { tint: scenery.band.tint, opacity: scenery.band.opacity, additive: true, rotation: scenery.band.rotation });
+    disposables.push(band.material);
+    band.sprite.scale.set(scenery.band.width, scenery.band.height, 1);
+    band.sprite.position.set(scenery.band.x, scenery.band.depth, scenery.band.z);
+    layerAt(scenery.band.depth).add(band.sprite);
+  }
 
-  // Nebulae: huge tinted PNG clouds, far behind everything.
-  const placeNebula = (x: number, z: number, size: number): void => {
-    const { sprite, material } = billboard(pick(rng, NEBULA_FILES), size, {
-      tint: pick(rng, NEBULA_TINTS),
-      opacity: 0.55,
-      additive: true,
-      rotation: rng() * Math.PI * 2,
-    });
+  for (const nebula of scenery.nebulae) {
+    const { sprite, material } = billboard(`${nebula.art}.png`, nebula.size, { tint: nebula.tint, opacity: nebula.opacity, additive: true, rotation: nebula.rotation });
     disposables.push(material);
-    sprite.position.set(x, NEBULA_DEPTH, z);
-    layerAt(NEBULA_DEPTH).add(sprite);
-  };
-  placeNebula(-3000, 4800, 6500);
-  for (let i = 0; i < 7; i++) placeNebula(range(rng, -halfExtent * 4, halfExtent * 4), range(rng, -halfExtent * 4, halfExtent * 4), range(rng, 4000, 9000));
+    sprite.position.set(nebula.x, nebula.depth, nebula.z);
+    layerAt(nebula.depth).add(sprite);
+  }
 
   // Draw order: deepest first.
   layers.sort((a, b) => a.depth - b.depth);

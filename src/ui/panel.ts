@@ -17,6 +17,10 @@ export interface PanelActions {
   toggleSlotMarkers(visible: boolean): void;
   toggleOutline(visible: boolean): void;
   flyShip(): void;
+  /** Load a map definition from a JSON file; resolves to an error message or null. */
+  loadMapFile(file: File): Promise<string | null>;
+  resetMap(): void;
+  downloadMap(): void;
 }
 
 export interface PanelEvents {
@@ -50,6 +54,8 @@ export class BuilderPanel {
   private readonly hullSummary: HTMLElement;
   private readonly statValues = new Map<keyof ShipStats | 'triangles', HTMLElement>();
   private readonly shareStatus: HTMLElement;
+  private readonly mapName: HTMLElement;
+  private readonly mapStatus: HTMLElement;
   private renderedHullId: HullId | null = null;
 
   constructor(
@@ -65,6 +71,8 @@ export class BuilderPanel {
     this.slotList = el('div', { className: 'slot-list' });
     this.hullSummary = el('p', { className: 'muted hull-summary' });
     this.shareStatus = el('span', { className: 'share-status muted' });
+    this.mapName = el('span', { className: 'map-name' });
+    this.mapStatus = el('span', { className: 'muted map-status' });
 
     this.mainInput.addEventListener('input', () => this.actions.setColours({ main: this.mainInput.value }));
     this.trimInput.addEventListener('input', () => this.actions.setColours({ trim: this.trimInput.value }));
@@ -77,7 +85,13 @@ export class BuilderPanel {
       this.buildLoadoutSection(),
       this.buildStatsSection(),
       this.buildActionsSection(),
+      this.buildMapSection(),
     );
+  }
+
+  /** Show which map the next flight will use. */
+  setMapName(name: string): void {
+    this.mapName.textContent = name;
   }
 
   render(state: ShipState, ship: AssembledShip, triangleCount: number): void {
@@ -197,6 +211,31 @@ export class BuilderPanel {
       el('div', { className: 'button-row' }, [randomParts, randomColours, reset]),
       el('div', { className: 'button-row' }, [share, this.shareStatus]),
       el('div', { className: 'toggle-row' }, [markersToggle, outlineToggle]),
+    ]);
+  }
+
+  private buildMapSection(): HTMLElement {
+    const fileInput = el('input', { type: 'file' });
+    fileInput.accept = '.json,application/json';
+    fileInput.style.display = 'none';
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files?.[0];
+      if (!file) return;
+      const error = await this.actions.loadMapFile(file);
+      this.mapStatus.textContent = error ? `Could not load: ${error}` : `Loaded ${file.name}`;
+      fileInput.value = '';
+    });
+    const load = button('Load map JSON…', () => fileInput.click());
+    const reset = button('Default map', () => {
+      this.actions.resetMap();
+      this.mapStatus.textContent = '';
+    });
+    const download = button('Save map as JSON', () => this.actions.downloadMap());
+    return section('Map', [
+      el('p', { className: 'muted' }, ['Next flight: ', this.mapName]),
+      el('div', { className: 'button-row' }, [load, reset, download, fileInput]),
+      el('div', { className: 'button-row' }, [this.mapStatus]),
+      el('p', { className: 'muted', text: 'Maps are JSON: scenery, every rock by id, comet and objects (caches, beacons). Saving writes the explicit rock list, so a "generate" recipe is baked on load. See README, or ?map=name for public/maps/name.json.' }),
     ]);
   }
 

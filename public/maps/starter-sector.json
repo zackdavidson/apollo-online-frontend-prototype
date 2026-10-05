@@ -1,0 +1,4237 @@
+{
+  "version": 1,
+  "name": "Starter Sector",
+  "size": 10000,
+  "seed": 20261003,
+  "spawn": {
+    "x": 5000,
+    "y": 5000,
+    "heading": 0
+  },
+  "scenery": {
+    "stars": [
+      {
+        "kind": "field",
+        "depth": -3200,
+        "tile": 5000,
+        "count": 2600,
+        "sizeWorld": 14,
+        "sizePx": 1.6,
+        "brightness": 0.55
+      },
+      {
+        "kind": "clusters",
+        "depth": -3800,
+        "tile": 6000,
+        "count": 1400,
+        "clusters": 7,
+        "sizeWorld": 17,
+        "sizePx": 1.8,
+        "brightness": 0.7
+      },
+      {
+        "kind": "field",
+        "depth": -4200,
+        "tile": 6500,
+        "count": 900,
+        "sizeWorld": 25,
+        "sizePx": 2.4,
+        "brightness": 0.9
+      },
+      {
+        "kind": "field",
+        "depth": -5200,
+        "tile": 8000,
+        "count": 180,
+        "sizeWorld": 42,
+        "sizePx": 3.4,
+        "brightness": 1.3
+      }
+    ],
+    "planets": [
+      {
+        "art": "planet-gas-01",
+        "x": 4320,
+        "y": 5430,
+        "depth": -2400,
+        "radius": 380,
+        "rotation": 0.2
+      },
+      {
+        "art": "moon-01",
+        "x": 4480,
+        "y": 5300,
+        "depth": -2100,
+        "radius": 60,
+        "rotation": -0.3
+      },
+      {
+        "art": "planet-rock-01",
+        "x": 6700,
+        "y": 3600,
+        "depth": -2800,
+        "radius": 500,
+        "rotation": 0.4
+      },
+      {
+        "art": "planet-gas-02",
+        "x": 1800,
+        "y": 3200,
+        "depth": -2600,
+        "radius": 420,
+        "rotation": -0.1
+      },
+      {
+        "art": "moon-02",
+        "x": 2000,
+        "y": 3500,
+        "depth": -2000,
+        "radius": 70,
+        "rotation": 0.5
+      }
+    ],
+    "sun": {
+      "x": 9500,
+      "y": 8500,
+      "depth": -7000,
+      "size": 7000
+    },
+    "nebulae": [
+      {
+        "art": "nebula-01",
+        "x": 8000,
+        "y": 9800,
+        "depth": -6000,
+        "size": 6500,
+        "tint": "#6a3fb0",
+        "opacity": 0.55,
+        "rotation": 0.8
+      },
+      {
+        "art": "nebula-02",
+        "x": 1500,
+        "y": 9000,
+        "depth": -6000,
+        "size": 5200,
+        "tint": "#2a7a8c",
+        "opacity": 0.55,
+        "rotation": 2.4
+      },
+      {
+        "art": "nebula-03",
+        "x": 12000,
+        "y": 2000,
+        "depth": -6000,
+        "size": 8000,
+        "tint": "#8c2a5a",
+        "opacity": 0.55,
+        "rotation": 4.1
+      },
+      {
+        "art": "nebula-01",
+        "x": -3000,
+        "y": 1500,
+        "depth": -6000,
+        "size": 7000,
+        "tint": "#2f5fa8",
+        "opacity": 0.55,
+        "rotation": 1.3
+      },
+      {
+        "art": "nebula-02",
+        "x": 5000,
+        "y": -4000,
+        "depth": -6000,
+        "size": 6000,
+        "tint": "#6a3fb0",
+        "opacity": 0.55,
+        "rotation": 5
+      },
+      {
+        "art": "nebula-03",
+        "x": 14000,
+        "y": 11000,
+        "depth": -6000,
+        "size": 8500,
+        "tint": "#2a7a8c",
+        "opacity": 0.55,
+        "rotation": 0.3
+      },
+      {
+        "art": "nebula-01",
+        "x": -2000,
+        "y": 13000,
+        "depth": -6000,
+        "size": 7500,
+        "tint": "#8c2a5a",
+        "opacity": 0.55,
+        "rotation": 3.3
+      },
+      {
+        "art": "nebula-02",
+        "x": 6500,
+        "y": 14500,
+        "depth": -6000,
+        "size": 5000,
+        "tint": "#2f5fa8",
+        "opacity": 0.55,
+        "rotation": 1.9
+      }
+    ],
+    "band": {
+      "art": "nebula-02",
+      "x": 3500,
+      "y": 7500,
+      "depth": -6500,
+      "width": 30600,
+      "height": 7200,
+      "tint": "#8fa6d8",
+      "opacity": 0.22,
+      "rotation": 0.55
+    }
+  },
+  "rocks": [
+    {
+      "id": "rock-0001",
+      "x": 5507.6,
+      "y": 5227.07,
+      "kind": "stone",
+      "radius": 3.74,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0002",
+      "x": 5633.97,
+      "y": 5343.3,
+      "kind": "stone",
+      "radius": 4.19,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0003",
+      "x": 5545.82,
+      "y": 5635.74,
+      "kind": "crystal",
+      "radius": 4.08,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0004",
+      "x": 5820.39,
+      "y": 5343.44,
+      "kind": "stone",
+      "radius": 1.5,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0005",
+      "x": 5837.59,
+      "y": 5398.91,
+      "kind": "stone",
+      "radius": 1.77,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0006",
+      "x": 5663.33,
+      "y": 5581.59,
+      "kind": "stone",
+      "radius": 2.85,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0007",
+      "x": 5550.61,
+      "y": 5766.88,
+      "kind": "crystal",
+      "radius": 3.85,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0008",
+      "x": 5657.41,
+      "y": 5511.53,
+      "kind": "stone",
+      "radius": 2.02,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0009",
+      "x": 5709.91,
+      "y": 5331.33,
+      "kind": "stone",
+      "radius": 3.8,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0010",
+      "x": 5778.77,
+      "y": 5182.37,
+      "kind": "stone",
+      "radius": 3.66,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0011",
+      "x": 5534.87,
+      "y": 5665.92,
+      "kind": "stone",
+      "radius": 3.07,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0012",
+      "x": 5440.11,
+      "y": 5543.01,
+      "kind": "stone",
+      "radius": 2.8,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0013",
+      "x": 5455.3,
+      "y": 5382.02,
+      "kind": "stone",
+      "radius": 3.36,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0014",
+      "x": 5586.19,
+      "y": 5314.96,
+      "kind": "stone",
+      "radius": 1.97,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0015",
+      "x": 5467.4,
+      "y": 5548.7,
+      "kind": "stone",
+      "radius": 3.19,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0016",
+      "x": 5844.51,
+      "y": 5648.35,
+      "kind": "stone",
+      "radius": 2.41,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0017",
+      "x": 5763.12,
+      "y": 5670.21,
+      "kind": "stone",
+      "radius": 1.67,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0018",
+      "x": 5411.15,
+      "y": 5544.6,
+      "kind": "stone",
+      "radius": 3.9,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0019",
+      "x": 5562.87,
+      "y": 5428.82,
+      "kind": "stone",
+      "radius": 2.1,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0020",
+      "x": 5738.75,
+      "y": 5187.42,
+      "kind": "stone",
+      "radius": 1.32,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0021",
+      "x": 5532.57,
+      "y": 5283.09,
+      "kind": "stone",
+      "radius": 2.17,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0022",
+      "x": 5605.4,
+      "y": 5180.75,
+      "kind": "crystal",
+      "radius": 1.86,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0023",
+      "x": 5608.18,
+      "y": 5609.61,
+      "kind": "stone",
+      "radius": 5.45,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0024",
+      "x": 5521.16,
+      "y": 5733.6,
+      "kind": "crystal",
+      "radius": 3.7,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0025",
+      "x": 5649.76,
+      "y": 5636.32,
+      "kind": "stone",
+      "radius": 2.66,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0026",
+      "x": 5574.69,
+      "y": 5450.94,
+      "kind": "stone",
+      "radius": 3.96,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0027",
+      "x": 5795.15,
+      "y": 5462.54,
+      "kind": "stone",
+      "radius": 1.41,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0028",
+      "x": 5792,
+      "y": 5605.24,
+      "kind": "stone",
+      "radius": 3.32,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0029",
+      "x": 5843.43,
+      "y": 5581.15,
+      "kind": "stone",
+      "radius": 1.32,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0030",
+      "x": 5689.03,
+      "y": 5465.36,
+      "kind": "stone",
+      "radius": 3.88,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0031",
+      "x": 5564.15,
+      "y": 5507.07,
+      "kind": "stone",
+      "radius": 1.95,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0032",
+      "x": 5422.9,
+      "y": 5327.38,
+      "kind": "stone",
+      "radius": 2.5,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0033",
+      "x": 5468.21,
+      "y": 5278.22,
+      "kind": "crystal",
+      "radius": 2.98,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0034",
+      "x": 5733.09,
+      "y": 5452.26,
+      "kind": "crystal",
+      "radius": 2.84,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0035",
+      "x": 5895.46,
+      "y": 5612,
+      "kind": "stone",
+      "radius": 2.65,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0036",
+      "x": 5824.77,
+      "y": 5459.41,
+      "kind": "stone",
+      "radius": 3.9,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0037",
+      "x": 5743.31,
+      "y": 5744.92,
+      "kind": "stone",
+      "radius": 4.99,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0038",
+      "x": 5651.67,
+      "y": 5749.52,
+      "kind": "stone",
+      "radius": 3.07,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0039",
+      "x": 5716.43,
+      "y": 5485.22,
+      "kind": "stone",
+      "radius": 3.52,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0040",
+      "x": 5712.39,
+      "y": 5633.07,
+      "kind": "stone",
+      "radius": 2.65,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0041",
+      "x": 5486.14,
+      "y": 5278.1,
+      "kind": "crystal",
+      "radius": 4.08,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0042",
+      "x": 5666.03,
+      "y": 5456.9,
+      "kind": "stone",
+      "radius": 4.38,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0043",
+      "x": 5711.93,
+      "y": 5278.95,
+      "kind": "crystal",
+      "radius": 3.62,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0044",
+      "x": 5600.04,
+      "y": 5149.46,
+      "kind": "stone",
+      "radius": 5.07,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0045",
+      "x": 5553.58,
+      "y": 5316.27,
+      "kind": "crystal",
+      "radius": 3.83,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0046",
+      "x": 5516.94,
+      "y": 5516.7,
+      "kind": "stone",
+      "radius": 5.23,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0047",
+      "x": 5763.49,
+      "y": 5580.6,
+      "kind": "stone",
+      "radius": 2.7,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0048",
+      "x": 5756.15,
+      "y": 5576.56,
+      "kind": "stone",
+      "radius": 1.62,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0049",
+      "x": 5615.48,
+      "y": 5597.04,
+      "kind": "stone",
+      "radius": 4.36,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0050",
+      "x": 5564.27,
+      "y": 5625.58,
+      "kind": "stone",
+      "radius": 3.75,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0051",
+      "x": 5332.67,
+      "y": 5598.87,
+      "kind": "stone",
+      "radius": 1.88,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0052",
+      "x": 5555.24,
+      "y": 5471.31,
+      "kind": "stone",
+      "radius": 2.85,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0053",
+      "x": 5450.92,
+      "y": 5303.96,
+      "kind": "crystal",
+      "radius": 2.56,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0054",
+      "x": 5583.1,
+      "y": 5506.86,
+      "kind": "crystal",
+      "radius": 3.74,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0055",
+      "x": 5440.38,
+      "y": 5423.55,
+      "kind": "stone",
+      "radius": 3.51,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0056",
+      "x": 5900,
+      "y": 5760,
+      "kind": "giant",
+      "radius": 11,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0057",
+      "x": 866.67,
+      "y": 7534.56,
+      "kind": "stone",
+      "radius": 3.96,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0058",
+      "x": 586.54,
+      "y": 7761.28,
+      "kind": "stone",
+      "radius": 2.07,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0059",
+      "x": 576.88,
+      "y": 7855.94,
+      "kind": "stone",
+      "radius": 2.01,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0060",
+      "x": 558.27,
+      "y": 7381.71,
+      "kind": "stone",
+      "radius": 2.59,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0061",
+      "x": 796.66,
+      "y": 7643.9,
+      "kind": "stone",
+      "radius": 2.17,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0062",
+      "x": 822.15,
+      "y": 7739.66,
+      "kind": "stone",
+      "radius": 3.06,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0063",
+      "x": 442.98,
+      "y": 7773.91,
+      "kind": "stone",
+      "radius": 2.21,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0064",
+      "x": 988.98,
+      "y": 7492.69,
+      "kind": "stone",
+      "radius": 4.81,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0065",
+      "x": 727.02,
+      "y": 7801.14,
+      "kind": "stone",
+      "radius": 3.29,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0066",
+      "x": 1002.66,
+      "y": 7671.17,
+      "kind": "stone",
+      "radius": 5.33,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0067",
+      "x": 427.82,
+      "y": 7750.49,
+      "kind": "stone",
+      "radius": 2.52,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0068",
+      "x": 949.44,
+      "y": 7485.92,
+      "kind": "stone",
+      "radius": 2.94,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0069",
+      "x": 803.81,
+      "y": 7818.83,
+      "kind": "stone",
+      "radius": 2.6,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0070",
+      "x": 931.35,
+      "y": 7539.18,
+      "kind": "stone",
+      "radius": 5.02,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0071",
+      "x": 875.69,
+      "y": 7412.58,
+      "kind": "stone",
+      "radius": 4.6,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0072",
+      "x": 667.64,
+      "y": 7320.33,
+      "kind": "stone",
+      "radius": 2.93,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0073",
+      "x": 659.57,
+      "y": 7755.91,
+      "kind": "stone",
+      "radius": 3.94,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0074",
+      "x": 801.19,
+      "y": 7851.74,
+      "kind": "stone",
+      "radius": 1.45,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0075",
+      "x": 927.62,
+      "y": 7691.11,
+      "kind": "stone",
+      "radius": 5.47,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0076",
+      "x": 419.44,
+      "y": 7628.79,
+      "kind": "stone",
+      "radius": 3.21,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0077",
+      "x": 708.14,
+      "y": 7824.97,
+      "kind": "stone",
+      "radius": 1.95,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0078",
+      "x": 725.06,
+      "y": 7894.61,
+      "kind": "stone",
+      "radius": 4.54,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0079",
+      "x": 704.12,
+      "y": 7694.3,
+      "kind": "stone",
+      "radius": 2.62,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0080",
+      "x": 896.47,
+      "y": 7776.86,
+      "kind": "stone",
+      "radius": 2.5,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0081",
+      "x": 487.65,
+      "y": 7486.96,
+      "kind": "stone",
+      "radius": 3.68,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0082",
+      "x": 787.62,
+      "y": 7640.75,
+      "kind": "stone",
+      "radius": 1.53,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0083",
+      "x": 975.57,
+      "y": 7644.66,
+      "kind": "stone",
+      "radius": 5.14,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0084",
+      "x": 683.35,
+      "y": 7739.66,
+      "kind": "stone",
+      "radius": 2.42,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0085",
+      "x": 634.55,
+      "y": 7569.98,
+      "kind": "stone",
+      "radius": 4.37,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0086",
+      "x": 612.9,
+      "y": 7737.7,
+      "kind": "stone",
+      "radius": 4.37,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0087",
+      "x": 705.34,
+      "y": 7531.28,
+      "kind": "stone",
+      "radius": 4.47,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0088",
+      "x": 530.27,
+      "y": 7408.47,
+      "kind": "stone",
+      "radius": 2.34,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0089",
+      "x": 851.41,
+      "y": 7691.14,
+      "kind": "stone",
+      "radius": 5.49,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0090",
+      "x": 470.52,
+      "y": 7598.59,
+      "kind": "stone",
+      "radius": 2.18,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0091",
+      "x": 745.66,
+      "y": 7428.71,
+      "kind": "stone",
+      "radius": 4.65,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0092",
+      "x": 634,
+      "y": 7379.3,
+      "kind": "stone",
+      "radius": 3.04,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0093",
+      "x": 524.46,
+      "y": 7726.01,
+      "kind": "stone",
+      "radius": 2.24,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0094",
+      "x": 788.33,
+      "y": 7891.17,
+      "kind": "stone",
+      "radius": 2.65,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0095",
+      "x": 442.44,
+      "y": 7628.51,
+      "kind": "stone",
+      "radius": 4.23,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0096",
+      "x": 661.57,
+      "y": 7428,
+      "kind": "stone",
+      "radius": 1.94,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0097",
+      "x": 941.93,
+      "y": 7755.02,
+      "kind": "stone",
+      "radius": 5.33,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0098",
+      "x": 708.31,
+      "y": 7624.84,
+      "kind": "stone",
+      "radius": 3.37,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0099",
+      "x": 1022.78,
+      "y": 7599.54,
+      "kind": "stone",
+      "radius": 1.57,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0100",
+      "x": 611.07,
+      "y": 7605.58,
+      "kind": "stone",
+      "radius": 1.34,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0101",
+      "x": 761.06,
+      "y": 7471.73,
+      "kind": "stone",
+      "radius": 4.2,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0102",
+      "x": 685.68,
+      "y": 7712.49,
+      "kind": "stone",
+      "radius": 1.95,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0103",
+      "x": 705.31,
+      "y": 7790.27,
+      "kind": "stone",
+      "radius": 5.06,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0104",
+      "x": 503.07,
+      "y": 7487.91,
+      "kind": "stone",
+      "radius": 5.23,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0105",
+      "x": 763.36,
+      "y": 7829.91,
+      "kind": "stone",
+      "radius": 1.92,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0106",
+      "x": 647.75,
+      "y": 7385.68,
+      "kind": "stone",
+      "radius": 1.51,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0107",
+      "x": 574.57,
+      "y": 7749.3,
+      "kind": "stone",
+      "radius": 3.26,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0108",
+      "x": 577.11,
+      "y": 7839.82,
+      "kind": "stone",
+      "radius": 3.89,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0109",
+      "x": 526.93,
+      "y": 7634.37,
+      "kind": "stone",
+      "radius": 4.91,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0110",
+      "x": 830.33,
+      "y": 7870.24,
+      "kind": "stone",
+      "radius": 4.65,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0111",
+      "x": 938.18,
+      "y": 7618.3,
+      "kind": "stone",
+      "radius": 2.31,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0112",
+      "x": 1235.98,
+      "y": 2116.67,
+      "kind": "iron",
+      "radius": 4.6,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0113",
+      "x": 1242.43,
+      "y": 2385.65,
+      "kind": "iron",
+      "radius": 1.72,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0114",
+      "x": 1104.91,
+      "y": 2084.87,
+      "kind": "iron",
+      "radius": 4.49,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0115",
+      "x": 958.62,
+      "y": 2151,
+      "kind": "stone",
+      "radius": 5.03,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0116",
+      "x": 1435.95,
+      "y": 2296.01,
+      "kind": "iron",
+      "radius": 3.6,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0117",
+      "x": 1169.25,
+      "y": 2349.08,
+      "kind": "stone",
+      "radius": 2.32,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0118",
+      "x": 1478.49,
+      "y": 2266.2,
+      "kind": "iron",
+      "radius": 4.79,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0119",
+      "x": 1145.31,
+      "y": 2264.13,
+      "kind": "iron",
+      "radius": 5.6,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0120",
+      "x": 1099.4,
+      "y": 2162.87,
+      "kind": "iron",
+      "radius": 5.54,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0121",
+      "x": 891.24,
+      "y": 2349.84,
+      "kind": "stone",
+      "radius": 4.13,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0122",
+      "x": 1206.16,
+      "y": 1943.68,
+      "kind": "iron",
+      "radius": 4.12,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0123",
+      "x": 1366.75,
+      "y": 2099.42,
+      "kind": "iron",
+      "radius": 1.91,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0124",
+      "x": 1026.25,
+      "y": 2368.2,
+      "kind": "stone",
+      "radius": 2.5,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0125",
+      "x": 1187.71,
+      "y": 2339.12,
+      "kind": "stone",
+      "radius": 5.43,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0126",
+      "x": 1310.49,
+      "y": 2458.33,
+      "kind": "iron",
+      "radius": 5.42,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0127",
+      "x": 1010.34,
+      "y": 2077.53,
+      "kind": "iron",
+      "radius": 4.2,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0128",
+      "x": 1251.89,
+      "y": 2182.24,
+      "kind": "iron",
+      "radius": 4.13,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0129",
+      "x": 1025.3,
+      "y": 2325.63,
+      "kind": "iron",
+      "radius": 1.89,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0130",
+      "x": 1235.54,
+      "y": 2440.39,
+      "kind": "iron",
+      "radius": 2.32,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0131",
+      "x": 1424.15,
+      "y": 2415.2,
+      "kind": "iron",
+      "radius": 1.93,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0132",
+      "x": 1153.41,
+      "y": 2149.01,
+      "kind": "iron",
+      "radius": 4.12,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0133",
+      "x": 937.12,
+      "y": 2099.43,
+      "kind": "iron",
+      "radius": 3.66,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0134",
+      "x": 909.64,
+      "y": 2384.49,
+      "kind": "iron",
+      "radius": 5.73,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0135",
+      "x": 1170.97,
+      "y": 2344,
+      "kind": "stone",
+      "radius": 2.5,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0136",
+      "x": 1016.45,
+      "y": 2041.26,
+      "kind": "iron",
+      "radius": 4.42,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0137",
+      "x": 1013.26,
+      "y": 2164.78,
+      "kind": "iron",
+      "radius": 2.33,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0138",
+      "x": 876.17,
+      "y": 2290.56,
+      "kind": "iron",
+      "radius": 3.58,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0139",
+      "x": 1182.71,
+      "y": 2482.77,
+      "kind": "iron",
+      "radius": 4.56,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0140",
+      "x": 1285.98,
+      "y": 2122.31,
+      "kind": "stone",
+      "radius": 4.25,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0141",
+      "x": 1387.13,
+      "y": 2310.26,
+      "kind": "iron",
+      "radius": 3.98,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0142",
+      "x": 1226.44,
+      "y": 2534.39,
+      "kind": "iron",
+      "radius": 4.2,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0143",
+      "x": 1298.55,
+      "y": 2250.96,
+      "kind": "iron",
+      "radius": 5,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0144",
+      "x": 1133.01,
+      "y": 2352.29,
+      "kind": "iron",
+      "radius": 1.97,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0145",
+      "x": 1205.69,
+      "y": 2083.69,
+      "kind": "iron",
+      "radius": 3.98,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0146",
+      "x": 1218.97,
+      "y": 2343.47,
+      "kind": "iron",
+      "radius": 4.89,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0147",
+      "x": 1246.36,
+      "y": 2247.71,
+      "kind": "iron",
+      "radius": 1.76,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0148",
+      "x": 1103.61,
+      "y": 2014.7,
+      "kind": "stone",
+      "radius": 1.32,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0149",
+      "x": 1081.13,
+      "y": 2180.65,
+      "kind": "stone",
+      "radius": 4.04,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0150",
+      "x": 1064.38,
+      "y": 2174.61,
+      "kind": "stone",
+      "radius": 1.59,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0151",
+      "x": 1255.6,
+      "y": 2226.11,
+      "kind": "stone",
+      "radius": 2.28,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0152",
+      "x": 1323.24,
+      "y": 2291.96,
+      "kind": "iron",
+      "radius": 5.06,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0153",
+      "x": 1436.85,
+      "y": 2127.01,
+      "kind": "iron",
+      "radius": 4.03,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0154",
+      "x": 938.85,
+      "y": 2350.6,
+      "kind": "iron",
+      "radius": 4.87,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0155",
+      "x": 988.1,
+      "y": 2378.35,
+      "kind": "stone",
+      "radius": 4.93,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0156",
+      "x": 1065.26,
+      "y": 2479.54,
+      "kind": "iron",
+      "radius": 2.24,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0157",
+      "x": 1036.58,
+      "y": 2256.09,
+      "kind": "iron",
+      "radius": 5.42,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0158",
+      "x": 959.26,
+      "y": 2389.86,
+      "kind": "iron",
+      "radius": 3.73,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0159",
+      "x": 990.02,
+      "y": 2053.44,
+      "kind": "iron",
+      "radius": 3.43,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0160",
+      "x": 1055.31,
+      "y": 2385.57,
+      "kind": "iron",
+      "radius": 2.72,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0161",
+      "x": 1071.36,
+      "y": 2088.48,
+      "kind": "stone",
+      "radius": 3.89,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0162",
+      "x": 865.97,
+      "y": 2278.62,
+      "kind": "iron",
+      "radius": 3.89,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0163",
+      "x": 1093.07,
+      "y": 2491.94,
+      "kind": "iron",
+      "radius": 2.85,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0164",
+      "x": 1302.55,
+      "y": 2485.6,
+      "kind": "iron",
+      "radius": 5.55,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0165",
+      "x": 1196.13,
+      "y": 2260.87,
+      "kind": "iron",
+      "radius": 3.65,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0166",
+      "x": 1290.21,
+      "y": 2325.76,
+      "kind": "iron",
+      "radius": 4.05,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0167",
+      "x": 1845.48,
+      "y": 1763.38,
+      "kind": "ice",
+      "radius": 2.67,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0168",
+      "x": 2167.4,
+      "y": 2025.88,
+      "kind": "ice",
+      "radius": 5.07,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0169",
+      "x": 2044.6,
+      "y": 2294.42,
+      "kind": "ice",
+      "radius": 4.29,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0170",
+      "x": 1982.95,
+      "y": 2128.33,
+      "kind": "stone",
+      "radius": 3.87,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0171",
+      "x": 1897.88,
+      "y": 1779.38,
+      "kind": "ice",
+      "radius": 1.51,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0172",
+      "x": 2167.85,
+      "y": 2207.05,
+      "kind": "ice",
+      "radius": 3.27,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0173",
+      "x": 1731.65,
+      "y": 2114.48,
+      "kind": "ice",
+      "radius": 3.77,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0174",
+      "x": 2099.41,
+      "y": 1827.76,
+      "kind": "ice",
+      "radius": 3.29,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0175",
+      "x": 2128.24,
+      "y": 1882.18,
+      "kind": "ice",
+      "radius": 3.95,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0176",
+      "x": 2115.98,
+      "y": 2144.71,
+      "kind": "ice",
+      "radius": 2.13,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0177",
+      "x": 1793.45,
+      "y": 1975.08,
+      "kind": "ice",
+      "radius": 4.7,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0178",
+      "x": 2157,
+      "y": 2179.54,
+      "kind": "ice",
+      "radius": 1.36,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0179",
+      "x": 2171.22,
+      "y": 1934.29,
+      "kind": "stone",
+      "radius": 1.88,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0180",
+      "x": 2026.93,
+      "y": 2046.87,
+      "kind": "ice",
+      "radius": 2.86,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0181",
+      "x": 1778.55,
+      "y": 1847.08,
+      "kind": "ice",
+      "radius": 5.18,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0182",
+      "x": 1977.12,
+      "y": 2320.01,
+      "kind": "ice",
+      "radius": 1.54,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0183",
+      "x": 1656.01,
+      "y": 2143.38,
+      "kind": "stone",
+      "radius": 3.91,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0184",
+      "x": 2005.65,
+      "y": 1807.54,
+      "kind": "ice",
+      "radius": 3.04,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0185",
+      "x": 1831.92,
+      "y": 2007.94,
+      "kind": "ice",
+      "radius": 1.73,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0186",
+      "x": 1768.78,
+      "y": 2026.19,
+      "kind": "ice",
+      "radius": 1.96,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0187",
+      "x": 1777.1,
+      "y": 1822.17,
+      "kind": "stone",
+      "radius": 5.38,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0188",
+      "x": 1961.86,
+      "y": 1782.18,
+      "kind": "ice",
+      "radius": 2.27,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0189",
+      "x": 1831.38,
+      "y": 2083.23,
+      "kind": "ice",
+      "radius": 3.97,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0190",
+      "x": 1774.05,
+      "y": 2117.74,
+      "kind": "ice",
+      "radius": 2.8,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0191",
+      "x": 2247.67,
+      "y": 2041.36,
+      "kind": "stone",
+      "radius": 5.48,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0192",
+      "x": 2130.54,
+      "y": 1920.76,
+      "kind": "ice",
+      "radius": 4.52,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0193",
+      "x": 1678.29,
+      "y": 2040.79,
+      "kind": "ice",
+      "radius": 2.56,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0194",
+      "x": 2130.76,
+      "y": 2313.37,
+      "kind": "ice",
+      "radius": 2.91,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0195",
+      "x": 1968.36,
+      "y": 2206.5,
+      "kind": "stone",
+      "radius": 3.23,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0196",
+      "x": 2082.76,
+      "y": 2255.05,
+      "kind": "stone",
+      "radius": 3.65,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0197",
+      "x": 1847.69,
+      "y": 1937,
+      "kind": "ice",
+      "radius": 3.63,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0198",
+      "x": 1691.41,
+      "y": 2106.53,
+      "kind": "ice",
+      "radius": 1.36,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0199",
+      "x": 2264.06,
+      "y": 2038.42,
+      "kind": "ice",
+      "radius": 5.05,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0200",
+      "x": 2194.68,
+      "y": 1945.57,
+      "kind": "stone",
+      "radius": 1.98,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0201",
+      "x": 1923.6,
+      "y": 2179.91,
+      "kind": "stone",
+      "radius": 1.94,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0202",
+      "x": 1649.73,
+      "y": 2068.22,
+      "kind": "ice",
+      "radius": 3.53,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0203",
+      "x": 2207.57,
+      "y": 2229.22,
+      "kind": "ice",
+      "radius": 4.34,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0204",
+      "x": 2210.74,
+      "y": 2197.22,
+      "kind": "ice",
+      "radius": 3.14,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0205",
+      "x": 1651.75,
+      "y": 2021.83,
+      "kind": "stone",
+      "radius": 1.9,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0206",
+      "x": 2262.66,
+      "y": 2013.49,
+      "kind": "stone",
+      "radius": 4.81,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0207",
+      "x": 1957.71,
+      "y": 2075.28,
+      "kind": "ice",
+      "radius": 4.67,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0208",
+      "x": 1827.93,
+      "y": 2162.17,
+      "kind": "ice",
+      "radius": 5.4,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0209",
+      "x": 1985.21,
+      "y": 1743.78,
+      "kind": "ice",
+      "radius": 2.85,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0210",
+      "x": 2097.77,
+      "y": 1947.24,
+      "kind": "stone",
+      "radius": 3.51,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0211",
+      "x": 2199.63,
+      "y": 2160.48,
+      "kind": "ice",
+      "radius": 2.65,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0212",
+      "x": 1997.26,
+      "y": 2142.6,
+      "kind": "ice",
+      "radius": 2.37,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0213",
+      "x": 1988.43,
+      "y": 1812.88,
+      "kind": "ice",
+      "radius": 2.58,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0214",
+      "x": 1712.25,
+      "y": 2024.97,
+      "kind": "stone",
+      "radius": 1.36,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0215",
+      "x": 2238.01,
+      "y": 2085.52,
+      "kind": "stone",
+      "radius": 4.4,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0216",
+      "x": 1897.83,
+      "y": 2318.92,
+      "kind": "ice",
+      "radius": 3.07,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0217",
+      "x": 1741.54,
+      "y": 1901.14,
+      "kind": "ice",
+      "radius": 1.71,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0218",
+      "x": 2033.7,
+      "y": 1888.55,
+      "kind": "ice",
+      "radius": 1.8,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0219",
+      "x": 2055.59,
+      "y": 1912.01,
+      "kind": "ice",
+      "radius": 4.13,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0220",
+      "x": 1987.62,
+      "y": 2182.33,
+      "kind": "ice",
+      "radius": 3.77,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0221",
+      "x": 1843.94,
+      "y": 1813.7,
+      "kind": "ice",
+      "radius": 2.15,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0222",
+      "x": 9132.4,
+      "y": 9547.25,
+      "kind": "crystal",
+      "radius": 2.6,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0223",
+      "x": 9506.75,
+      "y": 9469.79,
+      "kind": "stone",
+      "radius": 4.54,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0224",
+      "x": 9200.26,
+      "y": 9527.08,
+      "kind": "crystal",
+      "radius": 2.86,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0225",
+      "x": 9275.06,
+      "y": 9628.78,
+      "kind": "stone",
+      "radius": 3.36,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0226",
+      "x": 9302.66,
+      "y": 9248.51,
+      "kind": "crystal",
+      "radius": 2.71,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0227",
+      "x": 9621.1,
+      "y": 9550.11,
+      "kind": "crystal",
+      "radius": 1.82,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0228",
+      "x": 9291.99,
+      "y": 9240.34,
+      "kind": "crystal",
+      "radius": 2.55,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0229",
+      "x": 9450.68,
+      "y": 9283.39,
+      "kind": "crystal",
+      "radius": 2.62,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0230",
+      "x": 9234.28,
+      "y": 9178.35,
+      "kind": "crystal",
+      "radius": 2.47,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0231",
+      "x": 9561.77,
+      "y": 9224.07,
+      "kind": "crystal",
+      "radius": 3.56,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0232",
+      "x": 9522.53,
+      "y": 9553.32,
+      "kind": "crystal",
+      "radius": 3.54,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0233",
+      "x": 9258.28,
+      "y": 9341.83,
+      "kind": "crystal",
+      "radius": 2.08,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0234",
+      "x": 9650.7,
+      "y": 9248.64,
+      "kind": "stone",
+      "radius": 2.2,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0235",
+      "x": 9374.85,
+      "y": 9710.94,
+      "kind": "crystal",
+      "radius": 2.65,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0236",
+      "x": 9682.03,
+      "y": 9600.1,
+      "kind": "crystal",
+      "radius": 3.47,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0237",
+      "x": 9118.21,
+      "y": 9477.85,
+      "kind": "stone",
+      "radius": 1.93,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0238",
+      "x": 9353.2,
+      "y": 9409.35,
+      "kind": "crystal",
+      "radius": 3.11,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0239",
+      "x": 9626.72,
+      "y": 9182.65,
+      "kind": "crystal",
+      "radius": 4.16,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0240",
+      "x": 9188.83,
+      "y": 9494.18,
+      "kind": "crystal",
+      "radius": 3.3,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0241",
+      "x": 9516.65,
+      "y": 9246.62,
+      "kind": "stone",
+      "radius": 3.61,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0242",
+      "x": 9497.47,
+      "y": 9381.24,
+      "kind": "crystal",
+      "radius": 2.34,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0243",
+      "x": 9135.61,
+      "y": 9344.07,
+      "kind": "stone",
+      "radius": 4.93,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0244",
+      "x": 9699.74,
+      "y": 9282.63,
+      "kind": "stone",
+      "radius": 4.95,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0245",
+      "x": 9590.27,
+      "y": 9203.77,
+      "kind": "crystal",
+      "radius": 2.15,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0246",
+      "x": 9279.89,
+      "y": 9147.55,
+      "kind": "stone",
+      "radius": 3.9,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0247",
+      "x": 9392.82,
+      "y": 9290.93,
+      "kind": "stone",
+      "radius": 1.56,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0248",
+      "x": 9683.66,
+      "y": 9545.68,
+      "kind": "stone",
+      "radius": 5.26,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0249",
+      "x": 9218.67,
+      "y": 9555.51,
+      "kind": "crystal",
+      "radius": 3.94,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0250",
+      "x": 9523.98,
+      "y": 9544.54,
+      "kind": "stone",
+      "radius": 3.6,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0251",
+      "x": 9409.07,
+      "y": 9312.38,
+      "kind": "stone",
+      "radius": 4.29,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0252",
+      "x": 9687.09,
+      "y": 9452.91,
+      "kind": "crystal",
+      "radius": 1.81,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0253",
+      "x": 9329.98,
+      "y": 9588.99,
+      "kind": "crystal",
+      "radius": 3.97,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0254",
+      "x": 9522.21,
+      "y": 9152.72,
+      "kind": "crystal",
+      "radius": 4.11,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0255",
+      "x": 9441.55,
+      "y": 9144.98,
+      "kind": "stone",
+      "radius": 3.49,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0256",
+      "x": 9586.09,
+      "y": 9600.14,
+      "kind": "crystal",
+      "radius": 3.43,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0257",
+      "x": 9313.35,
+      "y": 9686.02,
+      "kind": "stone",
+      "radius": 1.44,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0258",
+      "x": 9402.1,
+      "y": 9206.4,
+      "kind": "crystal",
+      "radius": 3.96,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0259",
+      "x": 9256.14,
+      "y": 9255.55,
+      "kind": "crystal",
+      "radius": 1.95,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0260",
+      "x": 9416.26,
+      "y": 9554.27,
+      "kind": "stone",
+      "radius": 4.4,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0261",
+      "x": 9476.41,
+      "y": 9336.51,
+      "kind": "crystal",
+      "radius": 1.92,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0262",
+      "x": 9506.14,
+      "y": 9358.71,
+      "kind": "crystal",
+      "radius": 3.32,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0263",
+      "x": 9391.46,
+      "y": 9710.85,
+      "kind": "crystal",
+      "radius": 2.26,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0264",
+      "x": 9321.62,
+      "y": 9288.04,
+      "kind": "crystal",
+      "radius": 2.7,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0265",
+      "x": 9266.5,
+      "y": 9701.39,
+      "kind": "crystal",
+      "radius": 3.64,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0266",
+      "x": 9305.75,
+      "y": 9182.79,
+      "kind": "crystal",
+      "radius": 3.18,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0267",
+      "x": 9330.59,
+      "y": 9133.74,
+      "kind": "crystal",
+      "radius": 3.86,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0268",
+      "x": 9486.8,
+      "y": 9521.85,
+      "kind": "crystal",
+      "radius": 4,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0269",
+      "x": 9218.87,
+      "y": 9473.64,
+      "kind": "stone",
+      "radius": 5.03,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0270",
+      "x": 9441.79,
+      "y": 9525.08,
+      "kind": "crystal",
+      "radius": 2.54,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0271",
+      "x": 9357.1,
+      "y": 9462.33,
+      "kind": "stone",
+      "radius": 2.55,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0272",
+      "x": 9503.6,
+      "y": 9261.91,
+      "kind": "stone",
+      "radius": 3.95,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0273",
+      "x": 9413.91,
+      "y": 9344.91,
+      "kind": "crystal",
+      "radius": 2.17,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0274",
+      "x": 9258.42,
+      "y": 9235.28,
+      "kind": "stone",
+      "radius": 1.3,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0275",
+      "x": 9302.17,
+      "y": 9684.51,
+      "kind": "crystal",
+      "radius": 3.67,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0276",
+      "x": 9620.86,
+      "y": 9223.46,
+      "kind": "crystal",
+      "radius": 2.94,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0277",
+      "x": 2421.37,
+      "y": 7846.31,
+      "kind": "ice",
+      "radius": 5.03,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0278",
+      "x": 2451.89,
+      "y": 7596.01,
+      "kind": "ice",
+      "radius": 3.93,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0279",
+      "x": 2484.62,
+      "y": 7641.3,
+      "kind": "ice",
+      "radius": 4.95,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0280",
+      "x": 2160.43,
+      "y": 7736.24,
+      "kind": "ice",
+      "radius": 4.76,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0281",
+      "x": 2203.48,
+      "y": 7755.82,
+      "kind": "ice",
+      "radius": 5.04,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0282",
+      "x": 2215.32,
+      "y": 7365.59,
+      "kind": "ice",
+      "radius": 5.17,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0283",
+      "x": 2302.72,
+      "y": 7897.79,
+      "kind": "stone",
+      "radius": 3.08,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0284",
+      "x": 2145.56,
+      "y": 7638.91,
+      "kind": "ice",
+      "radius": 1.7,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0285",
+      "x": 2136.1,
+      "y": 7652.77,
+      "kind": "ice",
+      "radius": 3.92,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0286",
+      "x": 2339.16,
+      "y": 7411.29,
+      "kind": "ice",
+      "radius": 1.47,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0287",
+      "x": 2092.35,
+      "y": 7582.33,
+      "kind": "ice",
+      "radius": 4.55,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0288",
+      "x": 2049.16,
+      "y": 7656.1,
+      "kind": "ice",
+      "radius": 5.13,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0289",
+      "x": 2387.37,
+      "y": 7344.34,
+      "kind": "stone",
+      "radius": 4.73,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0290",
+      "x": 2459.45,
+      "y": 7469.24,
+      "kind": "ice",
+      "radius": 4.44,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0291",
+      "x": 2140.3,
+      "y": 7733.66,
+      "kind": "ice",
+      "radius": 2.74,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0292",
+      "x": 2418.35,
+      "y": 7414.1,
+      "kind": "ice",
+      "radius": 3.61,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0293",
+      "x": 2212.35,
+      "y": 7714.5,
+      "kind": "stone",
+      "radius": 3.48,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0294",
+      "x": 2287.76,
+      "y": 7444.56,
+      "kind": "ice",
+      "radius": 4.95,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0295",
+      "x": 2066.2,
+      "y": 7867.43,
+      "kind": "ice",
+      "radius": 4.79,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0296",
+      "x": 2320.02,
+      "y": 7930.8,
+      "kind": "ice",
+      "radius": 3.07,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0297",
+      "x": 2371.34,
+      "y": 7584.96,
+      "kind": "ice",
+      "radius": 4.51,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0298",
+      "x": 2468.94,
+      "y": 7612.06,
+      "kind": "ice",
+      "radius": 1.53,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0299",
+      "x": 2524.34,
+      "y": 7521.23,
+      "kind": "ice",
+      "radius": 3.35,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0300",
+      "x": 2361.54,
+      "y": 7759.82,
+      "kind": "ice",
+      "radius": 5.46,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0301",
+      "x": 2369.77,
+      "y": 7423.64,
+      "kind": "stone",
+      "radius": 1.96,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0302",
+      "x": 2311.91,
+      "y": 7552.48,
+      "kind": "stone",
+      "radius": 5.33,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0303",
+      "x": 2360.67,
+      "y": 7850.93,
+      "kind": "stone",
+      "radius": 2.05,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0304",
+      "x": 2137.02,
+      "y": 7520.56,
+      "kind": "ice",
+      "radius": 1.85,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0305",
+      "x": 2446.67,
+      "y": 7456.24,
+      "kind": "stone",
+      "radius": 1.93,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0306",
+      "x": 2404.38,
+      "y": 7413.56,
+      "kind": "ice",
+      "radius": 3.39,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0307",
+      "x": 2264.07,
+      "y": 7603.77,
+      "kind": "stone",
+      "radius": 4.88,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0308",
+      "x": 2316.67,
+      "y": 7842.78,
+      "kind": "stone",
+      "radius": 4.39,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0309",
+      "x": 2371.7,
+      "y": 7423.15,
+      "kind": "ice",
+      "radius": 1.7,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0310",
+      "x": 2313.16,
+      "y": 7412.94,
+      "kind": "ice",
+      "radius": 4.61,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0311",
+      "x": 2298.06,
+      "y": 7597.13,
+      "kind": "stone",
+      "radius": 4.88,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0312",
+      "x": 2504.71,
+      "y": 7663.37,
+      "kind": "ice",
+      "radius": 2.92,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0313",
+      "x": 2517.14,
+      "y": 7491.17,
+      "kind": "ice",
+      "radius": 4.56,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0314",
+      "x": 2051.05,
+      "y": 7555.03,
+      "kind": "ice",
+      "radius": 2.73,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0315",
+      "x": 2155.19,
+      "y": 7769.21,
+      "kind": "ice",
+      "radius": 3.29,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0316",
+      "x": 2320.54,
+      "y": 7873.27,
+      "kind": "ice",
+      "radius": 2.76,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0317",
+      "x": 1966.92,
+      "y": 7564.93,
+      "kind": "stone",
+      "radius": 1.93,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0318",
+      "x": 2144.2,
+      "y": 7494.54,
+      "kind": "ice",
+      "radius": 3.65,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0319",
+      "x": 2344.19,
+      "y": 7923.36,
+      "kind": "stone",
+      "radius": 2.11,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0320",
+      "x": 2489.24,
+      "y": 7563.1,
+      "kind": "stone",
+      "radius": 5,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0321",
+      "x": 2376.25,
+      "y": 7461.73,
+      "kind": "ice",
+      "radius": 2.1,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0322",
+      "x": 2175.77,
+      "y": 7627.91,
+      "kind": "ice",
+      "radius": 3.37,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0323",
+      "x": 2280.97,
+      "y": 7912.9,
+      "kind": "ice",
+      "radius": 4.54,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0324",
+      "x": 2069.09,
+      "y": 7751.78,
+      "kind": "ice",
+      "radius": 2.91,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0325",
+      "x": 2494.76,
+      "y": 7787.77,
+      "kind": "ice",
+      "radius": 2.56,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0326",
+      "x": 1993.19,
+      "y": 7739.69,
+      "kind": "ice",
+      "radius": 2.88,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0327",
+      "x": 2402.74,
+      "y": 7480.82,
+      "kind": "ice",
+      "radius": 4,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0328",
+      "x": 2354.98,
+      "y": 7701.07,
+      "kind": "ice",
+      "radius": 2.31,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0329",
+      "x": 2369.45,
+      "y": 7810.17,
+      "kind": "stone",
+      "radius": 2.32,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0330",
+      "x": 2575.77,
+      "y": 7570.28,
+      "kind": "ice",
+      "radius": 1.69,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0331",
+      "x": 1962.88,
+      "y": 7706.76,
+      "kind": "ice",
+      "radius": 2.31,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0332",
+      "x": 3448.95,
+      "y": 2950.54,
+      "kind": "stone",
+      "radius": 2.31,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0333",
+      "x": 3653.31,
+      "y": 3126.82,
+      "kind": "iron",
+      "radius": 3.3,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0334",
+      "x": 3798.11,
+      "y": 3088.18,
+      "kind": "iron",
+      "radius": 4.52,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0335",
+      "x": 3464.91,
+      "y": 3134.27,
+      "kind": "stone",
+      "radius": 4.4,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0336",
+      "x": 3654.96,
+      "y": 3211.75,
+      "kind": "stone",
+      "radius": 4.45,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0337",
+      "x": 3356.02,
+      "y": 2928.98,
+      "kind": "iron",
+      "radius": 2.23,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0338",
+      "x": 3231.14,
+      "y": 3230.35,
+      "kind": "iron",
+      "radius": 1.99,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0339",
+      "x": 3694.18,
+      "y": 3266.85,
+      "kind": "iron",
+      "radius": 1.93,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0340",
+      "x": 3609.02,
+      "y": 3325.45,
+      "kind": "iron",
+      "radius": 4.97,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0341",
+      "x": 3753.16,
+      "y": 3332.09,
+      "kind": "stone",
+      "radius": 1.64,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0342",
+      "x": 3697.54,
+      "y": 3200.91,
+      "kind": "iron",
+      "radius": 4.36,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0343",
+      "x": 3513.65,
+      "y": 3075.44,
+      "kind": "iron",
+      "radius": 2.72,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0344",
+      "x": 3462.79,
+      "y": 3077.92,
+      "kind": "stone",
+      "radius": 2.4,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0345",
+      "x": 3325.76,
+      "y": 3107.56,
+      "kind": "iron",
+      "radius": 2.02,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0346",
+      "x": 3781.63,
+      "y": 3265.4,
+      "kind": "stone",
+      "radius": 2.16,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0347",
+      "x": 3542.52,
+      "y": 2980.99,
+      "kind": "iron",
+      "radius": 2.58,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0348",
+      "x": 3541.63,
+      "y": 3025.13,
+      "kind": "stone",
+      "radius": 2.56,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0349",
+      "x": 3585.71,
+      "y": 3306.72,
+      "kind": "iron",
+      "radius": 1.66,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0350",
+      "x": 3246.97,
+      "y": 3127.97,
+      "kind": "stone",
+      "radius": 3.22,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0351",
+      "x": 3369.65,
+      "y": 3401.68,
+      "kind": "stone",
+      "radius": 1.96,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0352",
+      "x": 3718.04,
+      "y": 3369.78,
+      "kind": "stone",
+      "radius": 3.32,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0353",
+      "x": 3443.94,
+      "y": 3464.11,
+      "kind": "iron",
+      "radius": 4.16,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0354",
+      "x": 3458.92,
+      "y": 3009.88,
+      "kind": "iron",
+      "radius": 4.35,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0355",
+      "x": 3418.82,
+      "y": 3133.57,
+      "kind": "iron",
+      "radius": 2.05,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0356",
+      "x": 3623.93,
+      "y": 2958.32,
+      "kind": "iron",
+      "radius": 3.82,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0357",
+      "x": 3807.39,
+      "y": 3239,
+      "kind": "iron",
+      "radius": 5.2,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0358",
+      "x": 3290.35,
+      "y": 3184.7,
+      "kind": "iron",
+      "radius": 5.38,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0359",
+      "x": 3543.2,
+      "y": 3314.98,
+      "kind": "iron",
+      "radius": 5.14,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0360",
+      "x": 3201.8,
+      "y": 3148.68,
+      "kind": "stone",
+      "radius": 1.71,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0361",
+      "x": 3729.33,
+      "y": 3318.82,
+      "kind": "iron",
+      "radius": 5.45,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0362",
+      "x": 3445.48,
+      "y": 3479.58,
+      "kind": "iron",
+      "radius": 4.85,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0363",
+      "x": 3795.24,
+      "y": 3153.85,
+      "kind": "stone",
+      "radius": 5.17,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0364",
+      "x": 3442.1,
+      "y": 3350.21,
+      "kind": "iron",
+      "radius": 4.32,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0365",
+      "x": 3263.69,
+      "y": 3210.24,
+      "kind": "stone",
+      "radius": 2.48,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0366",
+      "x": 3329.29,
+      "y": 3039.24,
+      "kind": "iron",
+      "radius": 5.41,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0367",
+      "x": 3679.86,
+      "y": 3374.56,
+      "kind": "iron",
+      "radius": 5.76,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0368",
+      "x": 3290.47,
+      "y": 3242.42,
+      "kind": "iron",
+      "radius": 2.4,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0369",
+      "x": 3491.49,
+      "y": 3082.76,
+      "kind": "iron",
+      "radius": 2.79,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0370",
+      "x": 3338.85,
+      "y": 2970.89,
+      "kind": "stone",
+      "radius": 3.69,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0371",
+      "x": 3326.28,
+      "y": 3015.39,
+      "kind": "stone",
+      "radius": 5.44,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0372",
+      "x": 3402.34,
+      "y": 3237.83,
+      "kind": "iron",
+      "radius": 3.17,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0373",
+      "x": 3573.84,
+      "y": 3291.42,
+      "kind": "stone",
+      "radius": 2.95,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0374",
+      "x": 3613.8,
+      "y": 3094.84,
+      "kind": "iron",
+      "radius": 5.28,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0375",
+      "x": 3211.74,
+      "y": 3159.5,
+      "kind": "iron",
+      "radius": 4.22,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0376",
+      "x": 3619.86,
+      "y": 2894.72,
+      "kind": "stone",
+      "radius": 2.81,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0377",
+      "x": 3194.3,
+      "y": 3241.17,
+      "kind": "iron",
+      "radius": 1.69,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0378",
+      "x": 3625.22,
+      "y": 3293.61,
+      "kind": "iron",
+      "radius": 3.04,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0379",
+      "x": 3536.9,
+      "y": 2970.33,
+      "kind": "iron",
+      "radius": 5.17,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0380",
+      "x": 3309.4,
+      "y": 3257.88,
+      "kind": "stone",
+      "radius": 3.41,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0381",
+      "x": 3609.11,
+      "y": 3422.33,
+      "kind": "iron",
+      "radius": 4.87,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0382",
+      "x": 3330.32,
+      "y": 3114.65,
+      "kind": "iron",
+      "radius": 2.48,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0383",
+      "x": 3342.11,
+      "y": 3369.37,
+      "kind": "iron",
+      "radius": 5.18,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0384",
+      "x": 3708.54,
+      "y": 3223.42,
+      "kind": "stone",
+      "radius": 1.58,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0385",
+      "x": 3769.14,
+      "y": 3327.87,
+      "kind": "stone",
+      "radius": 1.93,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0386",
+      "x": 3314.28,
+      "y": 2931.98,
+      "kind": "stone",
+      "radius": 5.23,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0387",
+      "x": 4280.8,
+      "y": 693.46,
+      "kind": "iron",
+      "radius": 4.62,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0388",
+      "x": 4360.75,
+      "y": 1207.13,
+      "kind": "stone",
+      "radius": 3.52,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0389",
+      "x": 4053.59,
+      "y": 731.36,
+      "kind": "iron",
+      "radius": 3.25,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0390",
+      "x": 4490.21,
+      "y": 908.56,
+      "kind": "stone",
+      "radius": 5.32,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0391",
+      "x": 4399.45,
+      "y": 1175.52,
+      "kind": "stone",
+      "radius": 3.11,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0392",
+      "x": 4467.03,
+      "y": 942.79,
+      "kind": "stone",
+      "radius": 1.63,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0393",
+      "x": 4036.99,
+      "y": 987.19,
+      "kind": "stone",
+      "radius": 3.52,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0394",
+      "x": 4411.3,
+      "y": 1067.21,
+      "kind": "iron",
+      "radius": 5.5,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0395",
+      "x": 4013.5,
+      "y": 923.44,
+      "kind": "stone",
+      "radius": 2.83,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0396",
+      "x": 4399.22,
+      "y": 695.86,
+      "kind": "iron",
+      "radius": 2.02,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0397",
+      "x": 3979.49,
+      "y": 931.68,
+      "kind": "iron",
+      "radius": 4.24,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0398",
+      "x": 4358.99,
+      "y": 1106.65,
+      "kind": "iron",
+      "radius": 1.81,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0399",
+      "x": 4570.96,
+      "y": 822.66,
+      "kind": "iron",
+      "radius": 5.71,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0400",
+      "x": 4143.18,
+      "y": 770.84,
+      "kind": "iron",
+      "radius": 5.1,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0401",
+      "x": 4192.41,
+      "y": 1131.56,
+      "kind": "iron",
+      "radius": 2.68,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0402",
+      "x": 4394.76,
+      "y": 740.92,
+      "kind": "iron",
+      "radius": 2.09,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0403",
+      "x": 4046.82,
+      "y": 865.82,
+      "kind": "stone",
+      "radius": 2.58,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0404",
+      "x": 4534.1,
+      "y": 865.07,
+      "kind": "iron",
+      "radius": 2.94,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0405",
+      "x": 4574.48,
+      "y": 826.58,
+      "kind": "iron",
+      "radius": 5.62,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0406",
+      "x": 4595.56,
+      "y": 963.28,
+      "kind": "iron",
+      "radius": 5.66,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0407",
+      "x": 4241.66,
+      "y": 1180.31,
+      "kind": "iron",
+      "radius": 5.33,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0408",
+      "x": 3983.14,
+      "y": 951.33,
+      "kind": "stone",
+      "radius": 2.84,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0409",
+      "x": 4179.15,
+      "y": 919.03,
+      "kind": "stone",
+      "radius": 4.41,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0410",
+      "x": 4300.24,
+      "y": 649.85,
+      "kind": "iron",
+      "radius": 2.57,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0411",
+      "x": 4061.53,
+      "y": 933.76,
+      "kind": "iron",
+      "radius": 4.1,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0412",
+      "x": 4140.51,
+      "y": 908.92,
+      "kind": "iron",
+      "radius": 3.33,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0413",
+      "x": 4046.84,
+      "y": 1119.96,
+      "kind": "iron",
+      "radius": 5.78,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0414",
+      "x": 4277.88,
+      "y": 868.83,
+      "kind": "stone",
+      "radius": 3.93,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0415",
+      "x": 4171.78,
+      "y": 636.22,
+      "kind": "iron",
+      "radius": 1.81,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0416",
+      "x": 4156.73,
+      "y": 960.68,
+      "kind": "iron",
+      "radius": 4.75,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0417",
+      "x": 4028.09,
+      "y": 1010.74,
+      "kind": "iron",
+      "radius": 3.11,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0418",
+      "x": 4350.28,
+      "y": 1059.25,
+      "kind": "stone",
+      "radius": 4.78,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0419",
+      "x": 4275.21,
+      "y": 1050.98,
+      "kind": "iron",
+      "radius": 4.89,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0420",
+      "x": 4556.52,
+      "y": 1038.63,
+      "kind": "stone",
+      "radius": 5.14,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0421",
+      "x": 4364.37,
+      "y": 835.97,
+      "kind": "iron",
+      "radius": 4.65,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0422",
+      "x": 4395.94,
+      "y": 803.96,
+      "kind": "iron",
+      "radius": 5.43,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0423",
+      "x": 4191.22,
+      "y": 747.89,
+      "kind": "iron",
+      "radius": 4.84,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0424",
+      "x": 4055.36,
+      "y": 949.52,
+      "kind": "iron",
+      "radius": 3.4,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0425",
+      "x": 4121.43,
+      "y": 771.55,
+      "kind": "iron",
+      "radius": 4.61,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0426",
+      "x": 4182.79,
+      "y": 904.45,
+      "kind": "iron",
+      "radius": 4.03,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0427",
+      "x": 4312.6,
+      "y": 1117.38,
+      "kind": "iron",
+      "radius": 2.82,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0428",
+      "x": 4076.71,
+      "y": 793.02,
+      "kind": "iron",
+      "radius": 3.34,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0429",
+      "x": 4379.94,
+      "y": 1109.69,
+      "kind": "iron",
+      "radius": 5.23,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0430",
+      "x": 4405.25,
+      "y": 786.94,
+      "kind": "stone",
+      "radius": 4.56,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0431",
+      "x": 4480.98,
+      "y": 825.38,
+      "kind": "iron",
+      "radius": 3.74,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0432",
+      "x": 4504.66,
+      "y": 1087.72,
+      "kind": "iron",
+      "radius": 4.84,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0433",
+      "x": 4180.55,
+      "y": 882.05,
+      "kind": "iron",
+      "radius": 5.58,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0434",
+      "x": 4425.21,
+      "y": 695.47,
+      "kind": "iron",
+      "radius": 4.82,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0435",
+      "x": 4328.3,
+      "y": 988.05,
+      "kind": "iron",
+      "radius": 4.47,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0436",
+      "x": 4142.61,
+      "y": 960.63,
+      "kind": "stone",
+      "radius": 3.73,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0437",
+      "x": 4371.15,
+      "y": 869.95,
+      "kind": "stone",
+      "radius": 4,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0438",
+      "x": 4366.36,
+      "y": 1086.92,
+      "kind": "iron",
+      "radius": 2.78,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0439",
+      "x": 4275.62,
+      "y": 1132.51,
+      "kind": "iron",
+      "radius": 1.71,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0440",
+      "x": 4183.97,
+      "y": 1183.28,
+      "kind": "iron",
+      "radius": 3.67,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0441",
+      "x": 4438.77,
+      "y": 1065.87,
+      "kind": "stone",
+      "radius": 3.81,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0442",
+      "x": 6269.69,
+      "y": 7534.14,
+      "kind": "iron",
+      "radius": 3.13,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0443",
+      "x": 6051.71,
+      "y": 7615.41,
+      "kind": "stone",
+      "radius": 4.43,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0444",
+      "x": 5777.52,
+      "y": 7375.34,
+      "kind": "iron",
+      "radius": 2.09,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0445",
+      "x": 5971.49,
+      "y": 7340.22,
+      "kind": "iron",
+      "radius": 2.38,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0446",
+      "x": 6070.82,
+      "y": 7580.03,
+      "kind": "iron",
+      "radius": 5.45,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0447",
+      "x": 6017.37,
+      "y": 7063.51,
+      "kind": "iron",
+      "radius": 1.79,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0448",
+      "x": 5751.72,
+      "y": 7486.76,
+      "kind": "stone",
+      "radius": 2.96,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0449",
+      "x": 5929.1,
+      "y": 7577.94,
+      "kind": "iron",
+      "radius": 5.21,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0450",
+      "x": 5803.68,
+      "y": 7314.05,
+      "kind": "stone",
+      "radius": 3.38,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0451",
+      "x": 5842.82,
+      "y": 7294.25,
+      "kind": "stone",
+      "radius": 5.34,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0452",
+      "x": 6094.68,
+      "y": 7424.66,
+      "kind": "stone",
+      "radius": 4,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0453",
+      "x": 5867.58,
+      "y": 7476.41,
+      "kind": "iron",
+      "radius": 2.66,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0454",
+      "x": 6269.49,
+      "y": 7424.64,
+      "kind": "iron",
+      "radius": 3.76,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0455",
+      "x": 6118.6,
+      "y": 7542.88,
+      "kind": "stone",
+      "radius": 2.94,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0456",
+      "x": 5818.97,
+      "y": 7242.23,
+      "kind": "iron",
+      "radius": 1.91,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0457",
+      "x": 5782.37,
+      "y": 7401.06,
+      "kind": "stone",
+      "radius": 3.39,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0458",
+      "x": 5897.46,
+      "y": 7214.58,
+      "kind": "iron",
+      "radius": 5.77,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0459",
+      "x": 5759.25,
+      "y": 7426.76,
+      "kind": "iron",
+      "radius": 4.16,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0460",
+      "x": 5856.34,
+      "y": 7224.78,
+      "kind": "iron",
+      "radius": 2.38,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0461",
+      "x": 5918.14,
+      "y": 7469.76,
+      "kind": "iron",
+      "radius": 5.76,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0462",
+      "x": 6263.26,
+      "y": 7172.58,
+      "kind": "iron",
+      "radius": 2.83,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0463",
+      "x": 5949.39,
+      "y": 7093.47,
+      "kind": "iron",
+      "radius": 4.42,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0464",
+      "x": 6287.58,
+      "y": 7497.84,
+      "kind": "stone",
+      "radius": 5.34,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0465",
+      "x": 5959.44,
+      "y": 7508.15,
+      "kind": "iron",
+      "radius": 4.64,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0466",
+      "x": 5743.72,
+      "y": 7485.3,
+      "kind": "iron",
+      "radius": 5.56,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0467",
+      "x": 6097.31,
+      "y": 7482.29,
+      "kind": "stone",
+      "radius": 2.79,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0468",
+      "x": 5981.74,
+      "y": 7598.36,
+      "kind": "stone",
+      "radius": 3.16,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0469",
+      "x": 6106.83,
+      "y": 7066.75,
+      "kind": "iron",
+      "radius": 2.07,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0470",
+      "x": 6165.59,
+      "y": 7191.63,
+      "kind": "iron",
+      "radius": 3.85,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0471",
+      "x": 5971.66,
+      "y": 7366.66,
+      "kind": "iron",
+      "radius": 3.87,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0472",
+      "x": 6006.73,
+      "y": 7645.62,
+      "kind": "iron",
+      "radius": 4.43,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0473",
+      "x": 6118.62,
+      "y": 7298.03,
+      "kind": "iron",
+      "radius": 2.15,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0474",
+      "x": 5823.85,
+      "y": 7327.33,
+      "kind": "iron",
+      "radius": 4.29,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0475",
+      "x": 6130.1,
+      "y": 7256.78,
+      "kind": "stone",
+      "radius": 3.66,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0476",
+      "x": 6140.51,
+      "y": 7254.2,
+      "kind": "iron",
+      "radius": 5.23,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0477",
+      "x": 6148.87,
+      "y": 7437.75,
+      "kind": "iron",
+      "radius": 3.6,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0478",
+      "x": 5921.89,
+      "y": 7448.5,
+      "kind": "iron",
+      "radius": 3.86,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0479",
+      "x": 5898.42,
+      "y": 7277.77,
+      "kind": "stone",
+      "radius": 1.73,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0480",
+      "x": 6066.31,
+      "y": 7146.95,
+      "kind": "iron",
+      "radius": 3.31,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0481",
+      "x": 5996.05,
+      "y": 7617.61,
+      "kind": "iron",
+      "radius": 4.97,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0482",
+      "x": 5860.26,
+      "y": 7506.1,
+      "kind": "iron",
+      "radius": 4.6,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0483",
+      "x": 6167.06,
+      "y": 7287.93,
+      "kind": "iron",
+      "radius": 1.88,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0484",
+      "x": 6081.72,
+      "y": 7317.66,
+      "kind": "iron",
+      "radius": 5.39,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0485",
+      "x": 6106.02,
+      "y": 7490.05,
+      "kind": "stone",
+      "radius": 1.7,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0486",
+      "x": 6083.79,
+      "y": 7474.4,
+      "kind": "stone",
+      "radius": 3.62,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0487",
+      "x": 6042.42,
+      "y": 7444.67,
+      "kind": "iron",
+      "radius": 4.09,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0488",
+      "x": 6305.96,
+      "y": 7272.07,
+      "kind": "iron",
+      "radius": 3.86,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0489",
+      "x": 5951,
+      "y": 7474.02,
+      "kind": "iron",
+      "radius": 4.62,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0490",
+      "x": 6171.9,
+      "y": 7256.51,
+      "kind": "stone",
+      "radius": 2.9,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0491",
+      "x": 5723.76,
+      "y": 7303.33,
+      "kind": "iron",
+      "radius": 2.13,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0492",
+      "x": 6128.56,
+      "y": 7540.08,
+      "kind": "iron",
+      "radius": 4.71,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0493",
+      "x": 6229.69,
+      "y": 7153.73,
+      "kind": "iron",
+      "radius": 4.59,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0494",
+      "x": 6211.92,
+      "y": 7605.7,
+      "kind": "iron",
+      "radius": 5.14,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0495",
+      "x": 5940.27,
+      "y": 7645.46,
+      "kind": "stone",
+      "radius": 3.74,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0496",
+      "x": 5782.83,
+      "y": 7556.82,
+      "kind": "iron",
+      "radius": 3.97,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0497",
+      "x": 1322.03,
+      "y": 8197.89,
+      "kind": "giant",
+      "radius": 8.58,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0498",
+      "x": 5387.38,
+      "y": 8107.69,
+      "kind": "giant",
+      "radius": 11.31,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0499",
+      "x": 7720.22,
+      "y": 7792.6,
+      "kind": "giant",
+      "radius": 8.05,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0500",
+      "x": 6303.79,
+      "y": 7825.19,
+      "kind": "giant",
+      "radius": 10.84,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0501",
+      "x": 3313.38,
+      "y": 4221.63,
+      "kind": "giant",
+      "radius": 11.82,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0502",
+      "x": 9197.48,
+      "y": 4699.09,
+      "kind": "giant",
+      "radius": 9.66,
+      "respawn": 120
+    },
+    {
+      "id": "rock-0503",
+      "x": 4193.36,
+      "y": 5403.14,
+      "kind": "giant",
+      "radius": 12.68,
+      "respawn": 120
+    }
+  ],
+  "comet": {
+    "maxHp": 2400,
+    "radius": 6,
+    "speed": 14,
+    "startDistance": 900,
+    "exitMargin": 300,
+    "respawnDelay": 25,
+    "chunkEvery": 120,
+    "chunkCrystalChance": 0.35,
+    "finalDrops": {
+      "ice": 40,
+      "crystal": 14,
+      "iron": 8
+    },
+    "enabled": true,
+    "firstNearStart": true
+  },
+  "objects": []
+}

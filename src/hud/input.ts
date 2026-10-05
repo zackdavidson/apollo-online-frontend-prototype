@@ -1,4 +1,4 @@
-import type { FlightInput } from './flightController';
+import type { FlightInput } from '../game/flightController';
 
 export interface InputCallbacks {
   onExit(): void;

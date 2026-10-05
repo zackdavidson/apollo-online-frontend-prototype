@@ -1,5 +1,5 @@
 import { AdditiveBlending, BoxGeometry, Color, Group, InstancedMesh, Matrix4, MeshBasicMaterial, Quaternion, SphereGeometry, Vector3 } from 'three';
-import { MAX_PROJECTILES, type Projectile } from './projectiles';
+import { MAX_PROJECTILES, type Projectile } from '../game/projectiles';
 
 /**
  * Draws all live projectiles with two instanced meshes: stretched boxes for

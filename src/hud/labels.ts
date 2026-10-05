@@ -1,5 +1,5 @@
 import { el } from '../ui/dom';
-import type { Vitals } from './combat';
+import type { Vitals } from '../game/combat';
 
 export interface LabelInfo {
   readonly name: string;

@@ -1,5 +1,5 @@
 import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, DoubleSide, Mesh, MeshBasicMaterial } from 'three';
-import type { BeamStyle } from './weapons';
+import type { BeamStyle } from '../game/weapons';
 
 export interface BeamVisual {
   readonly x0: number;

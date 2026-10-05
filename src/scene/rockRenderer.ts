@@ -12,7 +12,7 @@ import {
   Quaternion,
   Vector3,
 } from 'three';
-import { ROCK_KINDS, type Rock } from './rocks';
+import { ROCK_KINDS, type Rock } from '../game/rocks';
 
 const MAX_ROCKS = 1400;
 const MAX_GEMS = 900;

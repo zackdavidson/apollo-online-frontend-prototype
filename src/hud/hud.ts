@@ -1,9 +1,9 @@
 import { clear, el } from '../ui/dom';
-import type { CameraMode } from './cameraRig';
-import { RESOURCES, RESOURCE_KINDS, inventoryValue, type Inventory } from './loot';
-import { fromMapCoords, headingBearing, rotateScreen, toMapCoords, worldVectorToMap } from './mapCoords';
-import { PIXEL_LEVELS, type PixelScope } from './pixelate';
-import type { WeaponGroup } from './weapons';
+import type { CameraMode } from '../scene/cameraRig';
+import { RESOURCES, RESOURCE_KINDS, inventoryValue, type Inventory } from '../game/loot';
+import { fromMapCoords, headingBearing, rotateScreen, toMapCoords, worldVectorToMap } from '../game/mapCoords';
+import { PIXEL_LEVELS, type PixelScope } from '../scene/pixelate';
+import type { WeaponGroup } from '../game/weapons';
 
 export interface WeaponGroupReadout {
   readonly id: WeaponGroup;
@@ -31,13 +31,14 @@ export interface HudInfo {
   readonly rocksBroken: number;
   readonly kills: number;
   readonly deaths: number;
-  /** Position of the enemy while it is alive. */
-  readonly enemy: { readonly x: number; readonly z: number } | null;
+  /** Living hostile ships, nearest first. */
+  readonly enemies: ReadonlyArray<{ readonly x: number; readonly z: number }>;
   readonly message: string | null;
   readonly weapons: readonly WeaponGroupReadout[];
   readonly cargo: Inventory;
   readonly pixelLevel: number;
   readonly pixelScope: PixelScope;
+  readonly beacons: ReadonlyArray<{ readonly x: number; readonly z: number; readonly colour: string }>;
   /** The shooting star while it is in the sector. */
   readonly comet: { readonly x: number; readonly z: number; readonly vx: number; readonly vz: number; readonly hp: number; readonly maxHp: number } | null;
 }
@@ -150,7 +151,7 @@ export class FlightHud {
       ]),
       el('div', {
         className: 'muted',
-        text: info.enemy ? `enemy ${Math.hypot(info.enemy.x - info.x, info.enemy.z - info.z).toFixed(0)} away` : 'enemy down',
+        text: info.enemies[0] ? `enemy ${Math.hypot(info.enemies[0].x - info.x, info.enemies[0].z - info.z).toFixed(0)} away` : 'no enemies up',
       }),
       el('div', {
         className: 'hud-comet',
@@ -294,9 +295,20 @@ export class FlightHud {
       context.arc(mx, mz, 2.2, 0, Math.PI * 2);
       context.fill();
     }
-    if (info.enemy) {
-      const [ex, ez] = toMap(info.enemy.x, info.enemy.z);
-      context.fillStyle = '#ff5c5c';
+    for (const beacon of info.beacons) {
+      const [bx, bz] = toMap(beacon.x, beacon.z);
+      context.fillStyle = beacon.colour;
+      context.beginPath();
+      context.moveTo(bx, bz - 3.5);
+      context.lineTo(bx + 3.5, bz);
+      context.lineTo(bx, bz + 3.5);
+      context.lineTo(bx - 3.5, bz);
+      context.closePath();
+      context.fill();
+    }
+    context.fillStyle = '#ff5c5c';
+    for (const enemy of info.enemies) {
+      const [ex, ez] = toMap(enemy.x, enemy.z);
       context.beginPath();
       context.arc(ex, ez, 3, 0, Math.PI * 2);
       context.fill();
