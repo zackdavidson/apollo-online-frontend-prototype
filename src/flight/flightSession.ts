@@ -10,7 +10,7 @@ import { optionsFor, type GameAction, type OptionContext } from '../game/actions
 import { defaultItemCatalog } from '../game/items';
 import { RESOURCES } from '../game/loot';
 import { defaultResolvedMap, type ResolvedMap } from '../game/map';
-import { formatMapCoords } from '../game/mapCoords';
+import { formatMapCoords, toMapCoords } from '../game/mapCoords';
 import { shipToWorld, type WeaponMount } from '../game/projectiles';
 import { ROCK_KINDS, rockDropItems, type Rock } from '../game/rocks';
 import { WorldSim } from '../game/simulation';
@@ -69,6 +69,10 @@ export interface NpcDialogue {
 export const DEFAULT_INTERACT_RANGE = 30;
 /** How far beyond the hull "Take" reaches for a dropped stack. */
 const TAKE_RANGE = 10;
+/** Reach of the warp drive from the ship, in world units. */
+export const WARP_RANGE = 600;
+/** Clicking this close to the existing waypoint clears it. */
+const WAYPOINT_CLEAR_RADIUS = 8;
 
 export interface FlightSessionOptions {
   readonly player: SessionShip;
@@ -178,9 +182,8 @@ export class FlightSession {
       onToggleCamera: () => this.scene.camera.toggleMode(),
       onPixelLevel: (index) => this.setPixelation(index, this.scene.pixelScope),
       onPixelScope: (scope) => this.setPixelation(this.scene.pixelLevel, scope),
-      onTeleport: (x, z) => {
-        if (!this.inDialogue) this.sim.requestWarp(PLAYER_ID, x, z);
-      },
+      onMapClick: (x, z) => this.unlessTalking(() => this.setWaypoint(x, z)),
+      onWarp: () => this.unlessTalking(() => this.engageWarp()),
       onChatSend: (text) => this.chatSend(text),
       onItemMenu: (target, x, y, defaultOnly) => {
         const options = optionsFor(target);
@@ -200,6 +203,7 @@ export class FlightSession {
       // While talking, only Space (advance) and Esc (close) do anything.
       onToggleCamera: () => this.unlessTalking(() => this.scene.camera.toggleMode()),
       onToggleMap: () => this.unlessTalking(() => this.hud.setMapExpanded(!this.hud.mapExpanded)),
+      onWarp: () => this.unlessTalking(() => this.engageWarp()),
       onInteract: (repeat) => this.interact(repeat),
       onChatFocus: () => this.unlessTalking(() => this.hud.chat.focusInput()),
       onContextMenu: (px) => this.unlessTalking(() => this.contextMenuAt(px)),
@@ -216,6 +220,7 @@ export class FlightSession {
     this.scene.camera.snapTo(map.spawn.x, map.spawn.z);
     this.message = { text: map.name, until: 3 };
     this.hud.setItemIcons(this.scene.itemIconUrls());
+    this.hud.setShipPortrait(this.scene.shipPortrait(player.surface, player.colours));
     this.hud.chat.addMessage({ from: '', kind: 'system', text: `Welcome to ${map.name}. Press Enter to chat, Space to talk to ships, /help for controls.` });
     this.frameHandle = requestAnimationFrame(this.frame);
   }
@@ -277,6 +282,12 @@ export class FlightSession {
     this.lastTime = nowMs;
     const time = nowMs / 1000;
 
+    // Talking or reading the map: the ship stops dead and stays put until the window closes.
+    const holdForUi = this.hud.chat.dialogueOpen || this.hud.mapExpanded;
+    if (holdForUi !== this.heldForUi) {
+      this.heldForUi = holdForUi;
+      this.sim.setHeld(PLAYER_ID, holdForUi);
+    }
     const snapshot = this.input.snapshot((x, y) => this.scene.aimPoint(x, y));
     const { cameraTilt, pointerPx } = snapshot;
     const flight = this.applyAutoMine(snapshot.flight);
@@ -385,8 +396,10 @@ export class FlightSession {
     const { width, height } = this.scene.size;
     this.hitMarkers.update(dt, this.scene.camera.camera, width, height);
     for (const ship of this.sim.allShips()) {
-      const screen = ship.alive ? this.scene.project(ship.state.x, LABEL_HEIGHT, ship.state.z) : null;
-      this.labels.update(ship.spec.id, screen, { name: ship.spec.name, vitals: ship.vitals, accent: this.accents.get(ship.spec.id) ?? NPC_ACCENT, showBars: !ship.spec.invulnerable });
+      const own = ship.spec.id === PLAYER_ID;
+      // Other ships carry a framed tag above them; your own ship just has its name hung below the hull.
+      const screen = !ship.alive ? null : own ? this.scene.project(ship.state.x, 0, ship.state.z - ship.spec.radius - 1.2) : this.scene.project(ship.state.x, LABEL_HEIGHT, ship.state.z);
+      this.labels.update(ship.spec.id, screen, { name: ship.spec.name, vitals: ship.vitals, accent: this.accents.get(ship.spec.id) ?? NPC_ACCENT, showBars: !ship.spec.invulnerable, own });
     }
 
     const comet = this.sim.comet;
@@ -400,6 +413,13 @@ export class FlightSession {
     const byDistance = (a: { x: number; z: number }, b: { x: number; z: number }): number =>
       Math.hypot(a.x - player.state.x, a.z - player.state.z) - Math.hypot(b.x - player.state.x, b.z - player.state.z);
     const others = [...this.sim.allShips()].filter((ship) => ship.alive && ship.spec.team !== player.spec.team);
+    if (this.waypoint && player.alive) {
+      const { screen, onScreen } = this.scene.projectRaw(this.waypoint.x, 0.5, this.waypoint.z);
+      this.hud.setWaypointIndicator({ screen, onScreen, distance: Math.hypot(this.waypoint.x - player.state.x, this.waypoint.z - player.state.z), width, height });
+    } else {
+      this.hud.setWaypointIndicator(null);
+    }
+
     const enemies = others.filter((ship) => ship.stance === 'hostile').map((ship) => ({ x: ship.state.x, z: ship.state.z })).sort(byDistance);
     const neutrals = others.filter((ship) => ship.stance === 'friendly').map((ship) => ({ x: ship.state.x, z: ship.state.z })).sort(byDistance);
     this.hud.update({
@@ -429,6 +449,8 @@ export class FlightSession {
       mapName: this.sim.map.name,
       ship: { name: player.spec.name, hullName: player.spec.hullName, shield: player.vitals.shield, maxShield: player.vitals.maxShield, hull: player.vitals.hull, maxHull: player.vitals.maxHull },
       fitted: this.fittedItems(player),
+      waypoint: this.waypoint,
+      warpRange: WARP_RANGE,
       comet: comet.alive ? comet : null,
     });
     const inside = player.alive ? this.sim.hazards.insideFor(PLAYER_ID)[0] : undefined;
@@ -452,6 +474,10 @@ export class FlightSession {
   // ---- options: right-click menus, default actions, auto-mining ---------------
 
   private autoMine: { readonly target: { readonly kind: 'rock'; readonly rockId: string } | { readonly kind: 'comet' } } | null = null;
+  /** Where the player has asked to go, set on the expanded map. */
+  private waypoint: { readonly x: number; readonly z: number } | null = null;
+  /** Whether the ship is currently held still for a UI reason (dialogue or the open map). */
+  private heldForUi = false;
 
   /** Build the option context for whatever is under a world point. */
   private optionContextAt(pick: Pick): OptionContext | null {
@@ -532,6 +558,38 @@ export class FlightSession {
     }
   }
 
+  /** A click on the expanded map: set the waypoint there, or clear it when clicking the existing one. */
+  private setWaypoint(x: number, z: number): void {
+    if (this.waypoint && Math.hypot(this.waypoint.x - x, this.waypoint.z - z) <= WAYPOINT_CLEAR_RADIUS) {
+      this.waypoint = null;
+      this.say('Waypoint cleared.');
+      return;
+    }
+    this.waypoint = { x, z };
+    const point = toMapCoords(x, z, this.sim.halfExtent);
+    const distance = Math.hypot(x - this.sim.getShip(PLAYER_ID)!.state.x, z - this.sim.getShip(PLAYER_ID)!.state.z);
+    this.say(`Waypoint set at ${point.x.toFixed(0)}, ${point.y.toFixed(0)} · ${distance.toFixed(0)} units away${distance > WARP_RANGE ? ` (warp range ${WARP_RANGE})` : ''}.`);
+  }
+
+  /** The warp drive button or J: jump to the waypoint if the drive can reach it. */
+  private engageWarp(): void {
+    const player = this.sim.getShip(PLAYER_ID)!;
+    if (!this.waypoint) {
+      this.say('No waypoint. Open the map (M) and click where you want to go.');
+      return;
+    }
+    const distance = Math.hypot(this.waypoint.x - player.state.x, this.waypoint.z - player.state.z);
+    if (distance > WARP_RANGE) {
+      this.say(`Waypoint is ${distance.toFixed(0)} units away; the warp drive reaches ${WARP_RANGE}.`);
+      return;
+    }
+    if (!this.sim.requestWarp(PLAYER_ID, this.waypoint.x, this.waypoint.z, WARP_RANGE)) {
+      this.say('Warp drive is busy.');
+      return;
+    }
+    this.hud.setMapExpanded(false);
+  }
+
   /** Begin mining a rock or the comet with the beam group: the ship holds its aim and fires until done, moved, or out of range. */
   private startAutoMine(target: { readonly kind: 'rock'; readonly rockId: string } | { readonly kind: 'comet' }): void {
     const player = this.sim.getShip(PLAYER_ID)!;
@@ -599,9 +657,8 @@ export class FlightSession {
     if (repeat || !this.talkable) return;
     const dialogue = this.dialogues.get(this.talkable.spec.id);
     if (!dialogue) return;
-    // Dialogue mode: the ship stops dead and stays put until the conversation ends.
-    this.sim.setHeld(PLAYER_ID, true);
-    this.hud.chat.openDialogue({ lines: dialogue.lines }, () => this.sim.setHeld(PLAYER_ID, false));
+    // Dialogue mode: the frame loop holds the ship still while the conversation is open.
+    this.hud.chat.openDialogue({ lines: dialogue.lines });
   }
 
   private get inDialogue(): boolean {
@@ -763,6 +820,7 @@ export class FlightSession {
         if (event.shipId === PLAYER_ID) this.scene.camera.snapTo(event.x, event.z);
         return;
       case 'warp-arrived': {
+        if (event.shipId === PLAYER_ID && this.waypoint && Math.hypot(this.waypoint.x - event.x, this.waypoint.z - event.z) < 6) this.waypoint = null;
         const radius = this.sim.getShip(event.shipId)?.spec.radius ?? 3;
         this.scene.flash(event.x, event.z, radius * 3.5);
         this.scene.shockwave(event.x, event.z, radius * 3, SHIELD_COLOUR);

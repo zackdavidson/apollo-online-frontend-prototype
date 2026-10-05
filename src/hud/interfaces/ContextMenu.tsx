@@ -29,7 +29,7 @@ export function ContextMenu() {
   const top = Math.max(4, Math.min(window.innerHeight - height - 4, state.y - 10));
 
   return (
-    <div ref={ref} className="ui-menu" style={{ left, top, width }} data-component-id={0}>
+    <div ref={ref} className="ui-menu" style={{ left, top, width }} data-component-id={0} onContextMenu={(event) => event.preventDefault()}>
       <div className="ui-menu-title">Choose Option</div>
       {state.options.map((option, index) => (
         <button

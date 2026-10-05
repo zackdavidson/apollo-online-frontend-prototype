@@ -4,6 +4,9 @@ import type { HudActions, HudInfo } from '../hud';
 import { useServices, useStoreValue, type InventoryTab } from './context';
 import { INTERFACE_IDS } from './index';
 
+/** Slots shown in the hold, filled first, the rest empty, like an old-school inventory. */
+const INVENTORY_SLOTS = 16;
+
 /** The latest HUD readout, refreshed a few times a second. */
 function useHudInfo(): HudInfo | null {
   const { info } = useServices<HudInfo, HudActions>();
@@ -17,9 +20,9 @@ export function CargoTab() {
   const icons = useStoreValue(itemIcons);
   const { actions } = useServices<HudInfo, HudActions>();
   const held = RESOURCE_KINDS.filter((kind) => (info?.cargo[kind] ?? 0) > 0);
+  const vacant = Math.max(0, INVENTORY_SLOTS - held.length);
   return (
     <>
-      {held.length === 0 ? <div className="muted">Hold empty. Mine a rock and fly over what it drops.</div> : null}
       <div className="cargo-grid">
         {held.map((kind) => {
           const count = info?.cargo[kind] ?? 0;
@@ -45,8 +48,10 @@ export function CargoTab() {
             </div>
           );
         })}
+        {Array.from({ length: vacant }, (_, index) => (
+          <div key={`vacant-${index}`} className="cargo-slot vacant" />
+        ))}
       </div>
-      <div className="muted inv-footer">{info ? `worth ${inventoryValue(info.cargo)} · rocks broken ${info.rocksBroken}` : ''}</div>
     </>
   );
 }

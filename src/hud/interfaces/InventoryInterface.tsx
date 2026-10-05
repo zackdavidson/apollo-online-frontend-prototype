@@ -21,7 +21,7 @@ export function InventoryInterface({ props }: InterfaceViewProps) {
   const Content = current?.Component ?? null;
 
   return (
-    <div className="hud ui-inventory">
+    <div className="hud ui-inventory ornate">
       <div className="inv-tabs">
         {tabs.map((tab) => (
           <button

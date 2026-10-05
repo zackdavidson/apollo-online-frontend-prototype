@@ -21,10 +21,21 @@ export interface InventoryTab {
   readonly Component: ComponentType;
 }
 
+/** Where the waypoint sits on the expanded map canvas (CSS px) and whether the drive can reach it. */
+export interface MapWaypointMarker {
+  readonly x: number;
+  readonly y: number;
+  readonly distance: number;
+  readonly range: number;
+  readonly inRange: boolean;
+}
+
 /** The HUD-side bridge for the map window: React owns the frame, the HUD draws the canvas. */
 export interface MapWindowBridge {
   readonly title: ValueStore<string>;
   readonly cursor: ValueStore<string>;
+  /** The waypoint marker for the warp button that floats on the map, or null. */
+  readonly waypoint: ValueStore<MapWaypointMarker | null>;
   /** React hands the canvas over on mount (and null on unmount); the HUD sizes and draws it. */
   attach(canvas: HTMLCanvasElement | null): void;
   onPointerDown(event: PointerEvent): void;

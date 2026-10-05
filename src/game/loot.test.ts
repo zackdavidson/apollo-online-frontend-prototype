@@ -37,6 +37,10 @@ describe('LootField', () => {
     expect(field.pickups).toHaveLength(1);
     field.step(1 / 60, { x: 50, z: 0, radius: 2 }); // walk away: arms it
     expect(field.step(1 / 60, onTop)).toEqual({ ice: 4 });
+    // Warping away counts too: with nobody around, everything arms.
+    const second = field.spawn(0, 0, 'ice', 2, 45, { armed: false })!;
+    field.step(1 / 60, null);
+    expect(field.collect({ x: second.x, z: second.z, radius: 2 })).toEqual({ ice: 2 });
     const again = field.spawn(0, 0, 'ice', 1, 45, { armed: false })!;
     expect(field.take(again.id, { x: 30, z: 0, radius: 2 }, 10)).toBeNull();
     expect(field.take(again.id, { x: 5, z: 0, radius: 2 }, 10)).toBe(again);

@@ -41,7 +41,11 @@ export function ChatInterface(_: InterfaceViewProps) {
   const last = dialogue ? dialogue.lineIndex === dialogue.script.lines.length - 1 : false;
 
   return (
-    <div className="hud hud-chat">
+    <div className="hud hud-chat ornate">
+      <div className="chat-header">
+        <span className="chat-title">Comms</span>
+        <span className="chat-sub">{dialogue ? 'transmission' : 'Enter to talk'}</span>
+      </div>
       {dialogue && line ? (
         <div
           key={dialogue.openCount}

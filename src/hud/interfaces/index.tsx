@@ -11,7 +11,7 @@ export { HelpInterface, MapInterface, NoticeInterface, PanelInterface } from './
 export { INTERFACE_SLOTS, InterfaceStore, parseInterfaceCommand } from './store';
 export type { InterfaceCommand, InterfaceDefinition, InterfaceInfo, InterfaceSlot } from './store';
 export { ServicesContext, useServices, useStoreValue } from './context';
-export type { HudServices, InterfaceView, InterfaceViewProps, InventoryTab, MapWindowBridge, MenuState } from './context';
+export type { HudServices, InterfaceView, InterfaceViewProps, InventoryTab, MapWaypointMarker, MapWindowBridge, MenuState } from './context';
 export { ValueStore } from './valueStore';
 
 /** Well-known interface ids. The chat is 0 by decree; the rest follow. */

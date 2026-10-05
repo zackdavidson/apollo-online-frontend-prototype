@@ -134,11 +134,13 @@ export class WorldSim implements ControllerView {
   }
 
   /** Start a warp; returns false when the ship is dead, already warping, or the target is on top of it. */
-  requestWarp(id: ShipId, x: number, z: number): boolean {
+  /** Start a warp to a point; refused while dead or already warping, or beyond `maxDistance` (the drive's range). */
+  requestWarp(id: ShipId, x: number, z: number, maxDistance = Infinity): boolean {
     const ship = this.ships.get(id);
     if (!ship || !ship.alive || ship.warp) return false;
     const targetX = Math.max(-this.halfExtent, Math.min(this.halfExtent, x));
     const targetZ = Math.max(-this.halfExtent, Math.min(this.halfExtent, z));
+    if (Math.hypot(targetX - ship.state.x, targetZ - ship.state.z) > maxDistance) return false;
     const plan = planWarp(ship.state.x, ship.state.z, targetX, targetZ, this.time);
     if (!plan) return false;
     ship.warp = plan;
@@ -213,6 +215,7 @@ export class WorldSim implements ControllerView {
     }
 
     for (const rock of this.rocks.step(now)) events.push({ type: 'rock-respawned', rock });
+    this.loot.age(dt);
 
     for (const ship of this.ships.values()) {
       if (!ship.spec.controller || !ship.alive) continue;
@@ -241,7 +244,7 @@ export class WorldSim implements ControllerView {
         for (const beacon of this.beacons.update(ship.spec.id, ship.state.x, ship.state.z)) events.push({ type: 'beacon-reached', shipId: ship.spec.id, beacon });
       }
       if (ship.spec.collectsLoot && ship.alive && !ship.warp) {
-        const collected = this.loot.step(dt, { x: ship.state.x, z: ship.state.z, radius: ship.spec.radius });
+        const collected = this.loot.collect({ x: ship.state.x, z: ship.state.z, radius: ship.spec.radius });
         for (const [kind, count] of Object.entries(collected) as Array<[ResourceKind, number | undefined]>) {
           if (!count) continue;
           ship.cargo = { ...ship.cargo, [kind]: ship.cargo[kind] + count };
@@ -251,7 +254,7 @@ export class WorldSim implements ControllerView {
       this.stepHazards(ship, now, events);
       ship.vitals = regenerateShield(ship.vitals, dt, now);
     }
-    if (![...this.ships.values()].some((ship) => ship.spec.collectsLoot && ship.alive && !ship.warp)) this.loot.step(dt, null);
+    if (![...this.ships.values()].some((ship) => ship.spec.collectsLoot && ship.alive && !ship.warp)) this.loot.armAll();
 
     return events;
   }

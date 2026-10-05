@@ -194,6 +194,18 @@ describe('WorldSim', () => {
   });
 });
 
+describe('warp range', () => {
+  it('refuses a warp beyond the drive range and accepts one inside it', () => {
+    const sim = new WorldSim();
+    sim.addShip(player());
+    expect(sim.requestWarp('p1', 0, 500, 160)).toBe(false);
+    expect(sim.getShip('p1')!.warp).toBeNull();
+    expect(sim.requestWarp('p1', 0, 150, 160)).toBe(true);
+    expect(sim.getShip('p1')!.warp).not.toBeNull();
+    expect(sim.requestWarp('p1', 0, 100, 160)).toBe(false); // already warping
+  });
+});
+
 describe('held ships', () => {
   it('stops dead, ignores thrust and fire while held, and flies again once released', () => {
     const sim = new WorldSim();

@@ -7,6 +7,8 @@ export interface LabelInfo {
   readonly accent: string;
   /** False hides the shield and hull bars (ships that cannot be hurt). */
   readonly showBars?: boolean;
+  /** The player's own tag: just the name, no frame or bars, hung below the given point instead of above it. */
+  readonly own?: boolean;
 }
 
 interface LabelElements {
@@ -39,9 +41,10 @@ export class WorldLabels {
       return;
     }
     label.root.style.display = '';
-    label.root.style.transform = `translate(-50%, -100%) translate(${screen.x.toFixed(1)}px, ${screen.y.toFixed(1)}px)`;
+    label.root.style.transform = `translate(-50%, ${info.own ? '0' : '-100%'}) translate(${screen.x.toFixed(1)}px, ${screen.y.toFixed(1)}px)`;
     label.name.textContent = info.name;
-    label.root.classList.toggle('label-plain', info.showBars === false);
+    label.root.classList.toggle('label-plain', info.showBars === false || info.own === true);
+    label.root.classList.toggle('label-own', info.own === true);
     if (label.sayUntil > 0 && performance.now() / 1000 > label.sayUntil) {
       label.sayUntil = 0;
       label.say.style.display = 'none';

@@ -212,7 +212,7 @@
       "x": 430,
       "y": 110,
       "kind": "giant",
-      "radius": 10,
+      "radius": 55,
       "respawn": null
     }
   ],
@@ -239,8 +239,8 @@
       "id": "drift",
       "x": 150,
       "y": 390,
-      "radius": 45,
-      "damagePerSecond": 10,
+      "radius": 85,
+      "damagePerSecond": 30,
       "label": "Toxic gas",
       "colour": "#9bff3d"
     },

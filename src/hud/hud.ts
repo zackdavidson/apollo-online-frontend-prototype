@@ -19,6 +19,7 @@ import {
   type HudServices,
   type InterfaceView,
   type InventoryTab,
+  type MapWaypointMarker,
   type MapWindowBridge,
   type MenuState,
 } from './interfaces';
@@ -70,6 +71,10 @@ export interface HudInfo {
   readonly fitted: ReadonlyArray<{ readonly itemId: string; readonly name: string; readonly group: WeaponGroup; readonly mounts: number }>;
   /** The player's ship, for the side panel. */
   readonly ship: { readonly name: string; readonly hullName: string; readonly shield: number; readonly maxShield: number; readonly hull: number; readonly maxHull: number };
+  /** Where the player wants to go, in world coordinates, if set. */
+  readonly waypoint: { readonly x: number; readonly z: number } | null;
+  /** How far the warp drive reaches from the ship, in world units. */
+  readonly warpRange: number;
   /** The shooting star while it is in the sector. */
   readonly comet: { readonly x: number; readonly z: number; readonly vx: number; readonly vz: number; readonly hp: number; readonly maxHp: number } | null;
 }
@@ -79,8 +84,10 @@ export interface HudActions {
   onToggleCamera(): void;
   onPixelLevel(index: number): void;
   onPixelScope(scope: PixelScope): void;
-  /** Clicking the minimap warps the ship to that world position. */
-  onTeleport(x: number, z: number): void;
+  /** Clicking the expanded map sets (or clears) the waypoint at that world position. */
+  onMapClick(x: number, z: number): void;
+  /** The warp drive button: jump to the waypoint if it is within range. */
+  onWarp(): void;
   /** A line typed into the chat box. */
   onChatSend(text: string): void;
   /** Right-click (or default-click) on an item in the hold or fitted to the ship; `x`/`y` are client pixels. */
@@ -95,19 +102,37 @@ const CONTROLS: ReadonlyArray<readonly [string, string]> = [
   ['1 / 2 / 3', 'switch weapon group'],
   ['Space', 'talk to a nearby ship · continue dialogue · hold to skip'],
   ['Enter', 'chat · /help for this list'],
-  ['M', 'expand the map · click a map to warp there'],
+  ['M', 'expand the map · click it to set or clear a waypoint'],
+  ['J', 'engage the warp drive towards the waypoint (or use the button on the map)'],
   ['Wheel', 'zoom · Q / E tilt camera · C camera mode'],
   ['P / O', 'pixelation level · pixelation scope'],
   ['Esc', 'close dialogue, help or map · then back to the hangar'],
 ];
 
 const MINIMAP_SIZE = 220;
+/** World units across the small minimap: a local view centred on the ship. The expanded map shows the whole sector. */
+const MINIMAP_SPAN = 260;
+/** World-aligned grid spacing on the local view. */
+const MINIMAP_GRID_STEP = 50;
 /** Inset of the map square from the canvas edge; the compass letters sit on the frame line itself. */
 const MINIMAP_INSET = 7;
 
 /** DOM overlay for flight: readouts, camera toggle, controls hint and a minimap. */
 export class FlightHud {
   private readonly status: HTMLElement;
+  private readonly frame: {
+    portrait: HTMLImageElement;
+    name: HTMLElement;
+    hull: HTMLElement;
+    shieldFill: HTMLElement;
+    shieldText: HTMLElement;
+    hullFill: HTMLElement;
+    hullText: HTMLElement;
+    pos: HTMLElement;
+    hdg: HTMLElement;
+    hdgArrow: HTMLElement;
+    spd: HTMLElement;
+  };
   private readonly prompt: HTMLElement;
   /** Every interface by id; open and close them here or through server commands. */
   readonly interfaces: InterfaceManager;
@@ -130,14 +155,45 @@ export class FlightHud {
   private readonly hazardWarning: HTMLElement;
   private hazardWarningText = '';
   private readonly tooltip: HTMLElement;
-  private readonly cometArrow: HTMLElement;
-  private readonly cometArrowLabel: HTMLElement;
+  private readonly cometIndicator = new ScreenIndicator('comet-arrow', false);
+  private readonly waypointIndicator = new ScreenIndicator('comet-arrow waypoint-arrow', true);
+
   private readonly weaponBar: HTMLElement;
-  private readonly weaponSlots = new Map<WeaponGroup, { root: HTMLElement; fill: HTMLElement; label: HTMLElement; state: HTMLElement }>();
+  private readonly weaponSlots = new Map<WeaponGroup, { root: HTMLElement; fill: HTMLElement; label: HTMLElement; state: HTMLElement; shade: HTMLElement; icon: HTMLImageElement }>();
   private halfExtent = 0;
 
   constructor(root: HTMLElement, actions: HudActions) {
-    this.status = el('div', { className: 'hud-status' });
+    // Ship frame: portrait, name, shield and hull, then a navigation strip. No debug readouts.
+    const portrait = el('img', { className: 'frame-portrait' });
+    portrait.alt = '';
+    portrait.draggable = false;
+    const name = el('div', { className: 'frame-name' });
+    const hull = el('div', { className: 'frame-hull' });
+    const shieldFill = el('div', { className: 'frame-fill frame-fill-shield' });
+    const shieldText = el('span', { className: 'frame-bar-text' });
+    const hullFill = el('div', { className: 'frame-fill frame-fill-hull' });
+    const hullText = el('span', { className: 'frame-bar-text' });
+    const pos = el('span', { className: 'nav-value' });
+    const hdg = el('span', { className: 'nav-value' });
+    const hdgArrow = el('span', { className: 'nav-arrow', text: '➤' });
+    const spd = el('span', { className: 'nav-value' });
+    this.frame = { portrait, name, hull, shieldFill, shieldText, hullFill, hullText, pos, hdg, hdgArrow, spd };
+    this.status = el('div', { className: 'hud hud-status ornate' }, [
+      el('div', { className: 'ship-frame' }, [
+        el('div', { className: 'frame-portrait-wrap' }, [portrait]),
+        el('div', { className: 'frame-body' }, [
+          name,
+          hull,
+          el('div', { className: 'frame-bar frame-bar-shield', title: 'Shield' }, [shieldFill, shieldText]),
+          el('div', { className: 'frame-bar frame-bar-hull', title: 'Hull' }, [hullFill, hullText]),
+        ]),
+      ]),
+      el('div', { className: 'nav-strip' }, [
+        el('div', { className: 'nav-cell' }, [el('span', { className: 'nav-key', text: 'POS' }), pos]),
+        el('div', { className: 'nav-cell' }, [el('span', { className: 'nav-key', text: 'HDG' }), hdgArrow, hdg]),
+        el('div', { className: 'nav-cell' }, [el('span', { className: 'nav-key', text: 'SPD' }), spd]),
+      ]),
+    ]);
     this.prompt = el('div', { className: 'hud hud-prompt' });
     this.prompt.style.display = 'none';
     // Interfaces: a React tree fed by small external stores; the session only ever sees the store API.
@@ -152,13 +208,14 @@ export class FlightHud {
     this.mapBridge = {
       title: new ValueStore(''),
       cursor: new ValueStore(''),
+      waypoint: new ValueStore<MapWaypointMarker | null>(null),
       attach: (canvas) => this.attachMapCanvas(canvas),
       onPointerDown: (event) => {
         if (!this.mapCanvas) return;
-        warpFromClick(this.mapCanvas, () => this.mapSize)(event);
+        mapClick(this.mapCanvas, () => this.mapSize, true)(event);
       },
       onPointerMove: (event) => {
-        const point = this.mapCanvas ? this.mapPointAt(this.mapCanvas, this.mapSize, event) : null;
+        const point = this.mapCanvas ? this.mapPointAt(this.mapCanvas, this.mapSize, event, true) : null;
         this.mapBridge.cursor.set(point ? `cursor ${point.x.toFixed(0)}, ${point.y.toFixed(0)}` : '');
       },
       onPointerLeave: () => this.mapBridge.cursor.set(''),
@@ -169,17 +226,16 @@ export class FlightHud {
     this.store.register({ id: INTERFACE_IDS.help, slot: 'main', name: 'Controls', view: HelpInterface });
     this.store.register({ id: INTERFACE_IDS.panel, slot: 'overlay', name: 'Panel', view: PanelInterface });
     this.store.register({ id: INTERFACE_IDS.notice, slot: 'full_overlay', name: 'Notice', view: NoticeInterface });
-    // Clicking either map warps to that map coordinate; the frame is ignored.
-    const warpFromClick = (canvas: HTMLCanvasElement, size: () => number) => (event: PointerEvent): void => {
+    // Only the expanded map takes clicks: they set the waypoint. The small map is read-only.
+    const mapClick = (canvas: HTMLCanvasElement, size: () => number, expanded: boolean) => (event: PointerEvent): void => {
       if (event.button !== 0 || this.halfExtent <= 0) return;
-      const point = this.mapPointAt(canvas, size(), event);
+      const point = this.mapPointAt(canvas, size(), event, expanded);
       if (!point) return;
       const world = fromMapCoords(point.x, point.y, this.halfExtent);
-      actions.onTeleport(world.x, world.z);
+      actions.onMapClick(world.x, world.z);
     };
-    this.minimap = el('canvas', { className: 'hud-minimap', title: 'Click to warp there · M expands' });
+    this.minimap = el('canvas', { className: 'hud-minimap', title: 'Local map · M expands it' });
     sizeCanvas(this.minimap, MINIMAP_SIZE);
-    this.minimap.addEventListener('pointerdown', warpFromClick(this.minimap, () => MINIMAP_SIZE));
     const expand = el('button', { type: 'button', className: 'hud-map-expand', text: '⤢', title: 'Expand map (M)' });
     expand.addEventListener('click', () => this.setMapExpanded(!this.mapExpanded));
     this.message = el('div', { className: 'hud hud-message' });
@@ -189,9 +245,6 @@ export class FlightHud {
     this.hazardWarning.style.display = 'none';
     this.tooltip = el('div', { className: 'hud hud-tooltip' });
     this.tooltip.style.display = 'none';
-    this.cometArrowLabel = el('span', { className: 'comet-arrow-label' });
-    this.cometArrow = el('div', { className: 'comet-arrow' }, [el('span', { className: 'comet-arrow-glyph', text: '➤' }), this.cometArrowLabel]);
-    this.cometArrow.style.display = 'none';
     this.weaponBar = el('div', { className: 'hud hud-weapons' });
 
     clear(root);
@@ -200,7 +253,8 @@ export class FlightHud {
       this.message,
       this.hazardWarning,
       this.tooltip,
-      this.cometArrow,
+      this.cometIndicator.root,
+      this.waypointIndicator.root,
       this.weaponBar,
       this.prompt,
       el('div', { className: 'hud hud-right-column' }, [el('div', { className: 'minimap-wrap' }, [this.minimap, expand]), this.status]),
@@ -249,6 +303,26 @@ export class FlightHud {
     this.prompt.replaceChildren(el('kbd', { text: prompt.key }), el('span', { text: prompt.text }));
   }
 
+  /** The waypoint's position on the expanded map in CSS pixels, for the warp button that floats there. */
+  private waypointMarker(info: HudInfo): MapWaypointMarker | null {
+    if (!info.waypoint) return null;
+    const side = this.mapSize - MINIMAP_INSET * 2;
+    const view = this.mapView(true);
+    const scale = side / view.span;
+    const point = toMapCoords(info.waypoint.x, info.waypoint.z, info.halfExtent);
+    const marker = {
+      x: Math.round(MINIMAP_INSET + side / 2 + (point.x - view.centreX) * scale),
+      y: Math.round(MINIMAP_INSET + side / 2 - (point.y - view.centreY) * scale),
+      distance: Math.hypot(info.waypoint.x - info.x, info.waypoint.z - info.z),
+      range: info.warpRange,
+      inRange: Math.hypot(info.waypoint.x - info.x, info.waypoint.z - info.z) <= info.warpRange,
+    };
+    const current = this.mapBridge.waypoint.get();
+    // Same marker as last frame: keep the old object so React does not re-render.
+    if (current && current.x === marker.x && current.y === marker.y && current.inRange === marker.inRange && Math.abs(current.distance - marker.distance) < 0.5) return current;
+    return marker;
+  }
+
   /** React hands over the expanded map's canvas when the window mounts; size it and draw straight away. */
   private attachMapCanvas(canvas: HTMLCanvasElement | null): void {
     this.mapCanvas = canvas;
@@ -277,44 +351,58 @@ export class FlightHud {
   }
 
   /** The map coordinate under a pointer event on one of the map canvases, or null when on the frame. */
-  private mapPointAt(canvas: HTMLCanvasElement, size: number, event: PointerEvent): { x: number; y: number } | null {
+  /** The map window a canvas shows: the whole sector when expanded, otherwise a fixed span around the ship. */
+  private mapView(expanded: boolean): { readonly centreX: number; readonly centreY: number; readonly span: number } {
+    const size = 2 * this.halfExtent;
+    if (expanded || !this.lastInfo) return { centreX: size / 2, centreY: size / 2, span: size };
+    const here = toMapCoords(this.lastInfo.x, this.lastInfo.z, this.halfExtent);
+    return { centreX: here.x, centreY: here.y, span: MINIMAP_SPAN };
+  }
+
+  /** The map coordinate under a pointer event on one of the map canvases, or null when on the frame or off the map. */
+  private mapPointAt(canvas: HTMLCanvasElement, size: number, event: PointerEvent, expanded: boolean): { x: number; y: number } | null {
     const rect = canvas.getBoundingClientRect();
     const px = ((event.clientX - rect.left) / rect.width) * size;
     const py = ((event.clientY - rect.top) / rect.height) * size;
     const side = size - MINIMAP_INSET * 2;
-    const u = (px - MINIMAP_INSET) / side;
-    const v = (py - MINIMAP_INSET) / side;
-    if (u < 0 || u > 1 || v < 0 || v > 1) return null;
-    return { x: u * 2 * this.halfExtent, y: (1 - v) * 2 * this.halfExtent };
+    if (px < MINIMAP_INSET || px > MINIMAP_INSET + side || py < MINIMAP_INSET || py > MINIMAP_INSET + side) return null;
+    const view = this.mapView(expanded);
+    const scale = side / view.span;
+    const x = view.centreX + (px - MINIMAP_INSET - side / 2) / scale;
+    const y = view.centreY - (py - MINIMAP_INSET - side / 2) / scale;
+    const limit = 2 * this.halfExtent;
+    if (x < 0 || x > limit || y < 0 || y > limit) return null;
+    return { x, y };
   }
 
   update(info: HudInfo): void {
     const here = toMapCoords(info.x, info.z, info.halfExtent);
-    const nearest = (ships: ReadonlyArray<{ readonly x: number; readonly z: number }>): number | null =>
-      ships[0] ? Math.hypot(ships[0].x - info.x, ships[0].z - info.z) : null;
-    const enemy = nearest(info.enemies);
-    const neutral = nearest(info.neutrals);
-    this.status.replaceChildren(
-      el('div', { className: 'status-main', text: `x ${here.x.toFixed(0)}  y ${here.y.toFixed(0)}  ·  hdg ${headingBearing(info.heading).toFixed(0).padStart(3, '0')}°  ·  ${info.speed.toFixed(0)} u/s` }),
-      el('div', { className: 'muted', text: `${info.mode} · tilt ${info.tiltDegrees.toFixed(0)}° · zoom ${info.zoomDistance.toFixed(0)}` }),
-      el('div', {
-        className: 'muted',
-        text: enemy !== null ? `enemy ${enemy.toFixed(0)} away` : neutral !== null ? `no hostiles · friendly ship ${neutral.toFixed(0)} away` : 'no enemies up',
-      }),
-      el('div', {
-        className: 'hud-comet',
-        text: info.comet ? `comet ${Math.hypot(info.comet.x - info.x, info.comet.z - info.z).toFixed(0)} away · ${Math.ceil(info.comet.hp)} / ${info.comet.maxHp} hp` : 'no comet in the sector',
-      }),
-    );
+    const f = this.frame;
+    f.name.textContent = info.ship.name;
+    f.hull.textContent = info.ship.hullName;
+    f.shieldFill.style.width = `${(100 * info.ship.shield) / Math.max(1, info.ship.maxShield)}%`;
+    f.shieldText.textContent = `${Math.ceil(info.ship.shield)} / ${info.ship.maxShield}`;
+    const hullFraction = info.ship.hull / Math.max(1, info.ship.maxHull);
+    f.hullFill.style.width = `${100 * hullFraction}%`;
+    f.hullFill.classList.toggle('low', hullFraction < 0.35);
+    f.hullText.textContent = `${Math.ceil(info.ship.hull)} / ${info.ship.maxHull}`;
+    f.pos.textContent = `${here.x.toFixed(0)} · ${here.y.toFixed(0)}`;
+    const bearing = headingBearing(info.heading);
+    f.hdg.textContent = `${bearing.toFixed(0).padStart(3, '0')}°`;
+    f.hdgArrow.style.transform = `rotate(${(bearing - 90).toFixed(0)}deg)`;
+    f.spd.textContent = `${info.speed.toFixed(0)}`;
     this.message.textContent = info.message ?? '';
     this.message.style.display = info.message ? '' : 'none';
-    this.updateWeapons(info.weapons);
+    this.updateWeapons(info.weapons, info.fitted);
     this.lastInfo = info;
     this.halfExtent = info.halfExtent;
     this.drawMap(this.minimap, MINIMAP_SIZE, info, false);
     if (this.mapExpanded && this.mapCanvas) {
       this.mapBridge.title.set(info.mapName);
       this.drawMap(this.mapCanvas, this.mapSize, info, true);
+      this.mapBridge.waypoint.set(this.waypointMarker(info));
+    } else if (this.mapBridge.waypoint.get()) {
+      this.mapBridge.waypoint.set(null);
     }
     // React reads the readout a few times a second; the canvases above redraw every frame.
     const now = performance.now();
@@ -330,35 +418,13 @@ export class FlightHud {
    * the element always carries it in data attributes for anything that wants
    * to find the comet on screen.
    */
-  setCometIndicator(indicator: { readonly screen: { readonly x: number; readonly y: number }; readonly onScreen: boolean; readonly distance: number; readonly width: number; readonly height: number } | null): void {
-    if (!indicator) {
-      this.cometArrow.style.display = 'none';
-      delete this.cometArrow.dataset['screenX'];
-      delete this.cometArrow.dataset['screenY'];
-      return;
-    }
-    this.cometArrow.dataset['screenX'] = indicator.screen.x.toFixed(0);
-    this.cometArrow.dataset['screenY'] = indicator.screen.y.toFixed(0);
-    this.cometArrow.dataset['onScreen'] = String(indicator.onScreen);
-    if (indicator.onScreen) {
-      this.cometArrow.style.display = 'none';
-      return;
-    }
-    const cx = indicator.width / 2;
-    const cy = indicator.height / 2;
-    const dx = indicator.screen.x - cx;
-    const dy = indicator.screen.y - cy;
-    const length = Math.hypot(dx, dy) || 1;
-    const margin = 46;
-    const scale = Math.min((cx - margin) / Math.abs(dx || 1e-6), (cy - margin) / Math.abs(dy || 1e-6));
-    const x = cx + dx * scale;
-    const y = cy + dy * scale;
-    const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-    this.cometArrow.style.display = '';
-    this.cometArrow.style.transform = `translate(-50%, -50%) translate(${x.toFixed(0)}px, ${y.toFixed(0)}px)`;
-    (this.cometArrow.firstElementChild as HTMLElement).style.transform = `rotate(${angle.toFixed(0)}deg)`;
-    this.cometArrowLabel.textContent = `comet ${indicator.distance.toFixed(0)}`;
-    void length;
+  setCometIndicator(indicator: ScreenIndicatorInput | null): void {
+    this.cometIndicator.update(indicator, indicator ? `comet ${indicator.distance.toFixed(0)}` : '');
+  }
+
+  /** The waypoint's arrow when off screen, or its marker when on screen. */
+  setWaypointIndicator(indicator: ScreenIndicatorInput | null): void {
+    this.waypointIndicator.update(indicator, indicator ? `waypoint ${indicator.distance.toFixed(0)}` : '');
   }
 
   /** Show a tooltip beside the pointer, or hide it when `tip` is null. */
@@ -397,28 +463,51 @@ export class FlightHud {
     );
   }
 
-  private updateWeapons(groups: readonly WeaponGroupReadout[]): void {
+  /** The action bar: one square slot per weapon group with the fitted item's sprite, a key badge and a cooldown shade. */
+  private updateWeapons(groups: readonly WeaponGroupReadout[], fitted: HudInfo['fitted']): void {
+    const icons = this.itemIcons.get();
     for (const group of groups) {
       let slot = this.weaponSlots.get(group.id);
       if (!slot) {
         const fill = el('div', { className: 'weapon-fill' });
+        const shade = el('div', { className: 'weapon-shade' });
+        const icon = el('img', { className: 'weapon-icon' });
+        icon.alt = '';
+        icon.draggable = false;
+        const glyph = el('span', { className: 'weapon-glyph', text: group.id === 'guns' ? '✦' : group.id === 'beam' ? '⟋' : '➶' });
         const label = el('span', { className: 'weapon-label' });
         const state = el('span', { className: 'weapon-state muted' });
-        const root = el('div', { className: 'weapon-slot' }, [
-          el('span', { className: 'weapon-key', text: group.key }),
-          el('div', { className: 'weapon-body' }, [label, el('div', { className: 'weapon-bar' }, [fill]), state]),
+        const root = el('div', { className: 'weapon-slot', title: `${group.label} · key ${group.key}` }, [
+          el('div', { className: 'weapon-square' }, [glyph, icon, shade, el('span', { className: 'weapon-key', text: group.key }), el('span', { className: 'weapon-count' }), el('div', { className: 'weapon-bar' }, [fill])]),
+          label,
+          state,
         ]);
         this.weaponBar.append(root);
-        slot = { root, fill, label, state };
+        slot = { root, fill, label, state, shade, icon };
         this.weaponSlots.set(group.id, slot);
       }
+      const item = fitted.find((fit) => fit.group === group.id);
+      const iconUrl = item ? icons[item.itemId] : undefined;
+      if (iconUrl && slot.icon.getAttribute('src') !== iconUrl) slot.icon.src = iconUrl;
+      slot.icon.style.display = iconUrl ? '' : 'none';
+      slot.root.classList.toggle('has-icon', Boolean(iconUrl));
       slot.root.classList.toggle('active', group.active);
       slot.root.classList.toggle('unavailable', group.mounts === 0);
       slot.root.classList.toggle('charging', group.phase === 'charging');
-      slot.label.textContent = group.mounts > 0 ? `${group.label} ×${group.mounts}` : `${group.label} (none fitted)`;
+      slot.root.classList.toggle('ready', group.phase === 'ready' && group.mounts > 0);
+      slot.label.textContent = item?.name ?? group.label;
+      const count = slot.root.querySelector<HTMLElement>('.weapon-count');
+      if (count) count.textContent = group.mounts > 1 ? `×${group.mounts}` : '';
       slot.fill.style.width = `${Math.round(group.fill * 100)}%`;
-      slot.state.textContent = group.mounts === 0 ? '' : group.phase === 'ready' ? 'ready' : group.phase === 'charging' ? `charging ${Math.round(group.fill * 100)}%` : 'cooling';
+      slot.shade.style.height = `${Math.round((1 - group.fill) * 100)}%`;
+      slot.state.textContent = group.mounts === 0 ? 'empty' : group.phase === 'ready' ? 'ready' : group.phase === 'charging' ? `${Math.round(group.fill * 100)}%` : 'cooling';
     }
+  }
+
+  /** The portrait of the player's own ship, rendered once by the scene. */
+  setShipPortrait(url: string): void {
+    if (url) this.frame.portrait.src = url;
+    this.frame.portrait.style.display = url ? '' : 'none';
   }
 
   /**
@@ -433,11 +522,12 @@ export class FlightHud {
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
     const inset = MINIMAP_INSET;
     const side = size - inset * 2;
-    const scale = side / (2 * info.halfExtent);
+    const view = this.mapView(expanded);
+    const scale = side / view.span;
     const k = expanded ? Math.max(1.4, size / MINIMAP_SIZE / 1.6) : 1; // glyph scale
     const toMap = (x: number, z: number): [number, number] => {
       const point = toMapCoords(x, z, info.halfExtent);
-      return [inset + point.x * scale, inset + side - point.y * scale];
+      return [inset + side / 2 + (point.x - view.centreX) * scale, inset + side / 2 - (point.y - view.centreY) * scale];
     };
     const dir = (worldX: number, worldZ: number): readonly [number, number] => {
       const [mx, my] = worldVectorToMap(worldX, worldZ);
@@ -448,21 +538,55 @@ export class FlightHud {
     context.fillStyle = 'rgba(10, 12, 20, 0.8)';
     roundedRect(context, 0.5, 0.5, size - 1, size - 1, 6);
     context.fill();
-    // Map square with a grid; the expanded map gets a finer one with coordinate ticks.
-    context.fillStyle = 'rgba(18, 24, 38, 0.65)';
+    // The square is void; the sector itself is drawn inside it (the whole thing when expanded,
+    // whatever part lies around the ship on the small map), with a grid on top.
+    context.fillStyle = 'rgba(6, 8, 14, 0.75)';
     context.fillRect(inset, inset, side, side);
-    const cells = expanded ? 10 : 4;
+    context.save();
+    context.beginPath();
+    context.rect(inset, inset, side, side);
+    context.clip();
+    const sectorSize = 2 * info.halfExtent;
+    const [sx0, sy1] = toMap(...mapToWorldXZ(0, 0, info.halfExtent));
+    const [sx1, sy0] = toMap(...mapToWorldXZ(sectorSize, sectorSize, info.halfExtent));
+    context.fillStyle = 'rgba(18, 24, 38, 0.65)';
+    context.fillRect(sx0, sy0, sx1 - sx0, sy1 - sy0);
     context.strokeStyle = 'rgba(120, 140, 170, 0.14)';
     context.lineWidth = 1;
-    for (let i = 1; i < cells; i++) {
-      const at = inset + (side * i) / cells + 0.5;
-      context.beginPath();
-      context.moveTo(at, inset);
-      context.lineTo(at, inset + side);
-      context.moveTo(inset, at);
-      context.lineTo(inset + side, at);
-      context.stroke();
+    const cells = 10;
+    if (expanded) {
+      for (let i = 1; i < cells; i++) {
+        const at = inset + (side * i) / cells + 0.5;
+        context.beginPath();
+        context.moveTo(at, inset);
+        context.lineTo(at, inset + side);
+        context.moveTo(inset, at);
+        context.lineTo(inset + side, at);
+        context.stroke();
+      }
+    } else {
+      // World-aligned grid lines so the ground visibly slides under the ship.
+      const left = view.centreX - view.span / 2;
+      const bottom = view.centreY - view.span / 2;
+      for (let gx = Math.ceil(left / MINIMAP_GRID_STEP) * MINIMAP_GRID_STEP; gx <= left + view.span; gx += MINIMAP_GRID_STEP) {
+        const px = Math.round(inset + side / 2 + (gx - view.centreX) * scale) + 0.5;
+        context.beginPath();
+        context.moveTo(px, inset);
+        context.lineTo(px, inset + side);
+        context.stroke();
+      }
+      for (let gy = Math.ceil(bottom / MINIMAP_GRID_STEP) * MINIMAP_GRID_STEP; gy <= bottom + view.span; gy += MINIMAP_GRID_STEP) {
+        const py = Math.round(inset + side / 2 - (gy - view.centreY) * scale) + 0.5;
+        context.beginPath();
+        context.moveTo(inset, py);
+        context.lineTo(inset + side, py);
+        context.stroke();
+      }
+      // The sector's edge, where there is one in view.
+      context.strokeStyle = 'rgba(150, 160, 180, 0.6)';
+      context.strokeRect(sx0 + 0.5, sy0 + 0.5, sx1 - sx0 - 1, sy1 - sy0 - 1);
     }
+    context.restore();
     if (expanded) {
       context.fillStyle = 'rgba(160, 175, 200, 0.55)';
       context.font = '10px system-ui, sans-serif';
@@ -568,6 +692,39 @@ export class FlightHud {
       context.fill();
     }
     const [sx, sz] = toMap(info.x, info.z);
+    // Warp drive range: a dashed ring around the ship.
+    context.save();
+    context.setLineDash([4 * k, 4 * k]);
+    context.strokeStyle = 'rgba(111, 211, 255, 0.55)';
+    context.lineWidth = 1;
+    context.beginPath();
+    context.arc(sx, sz, info.warpRange * scale, 0, Math.PI * 2);
+    context.stroke();
+    // The waypoint: a dashed line from the ship and a diamond with a ring.
+    if (info.waypoint) {
+      const [wx, wz] = toMap(info.waypoint.x, info.waypoint.z);
+      context.strokeStyle = 'rgba(111, 211, 255, 0.5)';
+      context.setLineDash([3 * k, 3 * k]);
+      context.beginPath();
+      context.moveTo(sx, sz);
+      context.lineTo(wx, wz);
+      context.stroke();
+      context.setLineDash([]);
+      const d = 4.5 * k;
+      context.fillStyle = '#6fd3ff';
+      context.beginPath();
+      context.moveTo(wx, wz - d);
+      context.lineTo(wx + d, wz);
+      context.lineTo(wx, wz + d);
+      context.lineTo(wx - d, wz);
+      context.closePath();
+      context.fill();
+      context.strokeStyle = 'rgba(111, 211, 255, 0.8)';
+      context.beginPath();
+      context.arc(wx, wz, 7 * k, 0, Math.PI * 2);
+      context.stroke();
+    }
+    context.restore();
     const [hx, hz] = dir(Math.sin(info.heading), Math.cos(info.heading));
     context.strokeStyle = '#6fd3ff';
     context.lineWidth = 1.5 * k;
@@ -624,6 +781,12 @@ export class FlightHud {
   }
 }
 
+/** World XZ for a map coordinate, as a tuple for spreading into the canvas mapping. */
+function mapToWorldXZ(mapX: number, mapY: number, halfExtent: number): [number, number] {
+  const world = fromMapCoords(mapX, mapY, halfExtent);
+  return [world.x, world.z];
+}
+
 /** Size a canvas for crisp drawing at the device pixel ratio while laying out at `size` CSS pixels. */
 function sizeCanvas(canvas: HTMLCanvasElement, size: number): void {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -653,4 +816,72 @@ function roundedRect(context: CanvasRenderingContext2D, x: number, y: number, wi
   context.lineTo(x, y + radius);
   context.quadraticCurveTo(x, y, x + radius, y);
   context.closePath();
+}
+
+
+export interface ScreenIndicatorInput {
+  readonly screen: { readonly x: number; readonly y: number };
+  readonly onScreen: boolean;
+  readonly distance: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+/**
+ * An arrow at the screen edge pointing at something off screen, with a
+ * distance label. With `markOnScreen` it instead sits on the thing itself
+ * while it is in view (the comet draws itself; a waypoint does not).
+ */
+class ScreenIndicator {
+  readonly root: HTMLElement;
+  private readonly glyph: HTMLElement;
+  private readonly label: HTMLElement;
+
+  constructor(className: string, private readonly markOnScreen: boolean) {
+    this.glyph = el('span', { className: 'comet-arrow-glyph', text: '➤' });
+    this.label = el('span', { className: 'comet-arrow-label' });
+    this.root = el('div', { className }, [this.glyph, this.label]);
+    this.root.style.display = 'none';
+  }
+
+  update(indicator: ScreenIndicatorInput | null, text: string): void {
+    if (!indicator) {
+      this.root.style.display = 'none';
+      delete this.root.dataset['screenX'];
+      delete this.root.dataset['screenY'];
+      return;
+    }
+    this.root.dataset['screenX'] = indicator.screen.x.toFixed(0);
+    this.root.dataset['screenY'] = indicator.screen.y.toFixed(0);
+    this.root.dataset['onScreen'] = String(indicator.onScreen);
+    this.label.textContent = text;
+    if (indicator.onScreen) {
+      if (!this.markOnScreen) {
+        this.root.style.display = 'none';
+        return;
+      }
+      this.root.style.display = '';
+      this.root.classList.add('on-screen');
+      this.root.style.transform = `translate(-50%, -50%) translate(${indicator.screen.x.toFixed(0)}px, ${indicator.screen.y.toFixed(0)}px)`;
+      this.glyph.textContent = '◆';
+      this.glyph.style.transform = '';
+      return;
+    }
+    this.root.classList.remove('on-screen');
+    const cx = indicator.width / 2;
+    const cy = indicator.height / 2;
+    const dx = indicator.screen.x - cx;
+    const dy = indicator.screen.y - cy;
+    const margin = 46;
+    const scale = Math.min((cx - margin) / Math.abs(dx || 1e-6), (cy - margin) / Math.abs(dy || 1e-6));
+    let x = cx + dx * scale;
+    const y = cy + dy * scale;
+    // Keep edge arrows out from behind the minimap column in the top-right corner.
+    if (x > indicator.width - 260 && y < 520) x = indicator.width - 260;
+    const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+    this.root.style.display = '';
+    this.root.style.transform = `translate(-50%, -50%) translate(${x.toFixed(0)}px, ${y.toFixed(0)}px)`;
+    this.glyph.textContent = '➤';
+    this.glyph.style.transform = `rotate(${angle.toFixed(0)}deg)`;
+  }
 }

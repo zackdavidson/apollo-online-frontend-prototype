@@ -124,17 +124,30 @@ export class LootField {
     return pickup;
   }
 
-  /** Age stacks away and collect the armed ones the collector is standing on. */
+  /** Age stacks away (once per simulation step) and collect for one collector; `step` is the two together. */
   step(dt: number, collector: Collector | null): Partial<Record<ResourceKind, number>> {
-    const collected: Partial<Record<ResourceKind, number>> = {};
+    this.age(dt);
+    if (!collector) {
+      this.armAll();
+      return {};
+    }
+    return this.collect(collector);
+  }
+
+  /** Tick lifetimes; stacks at zero vanish. Call once per step however many collectors there are. */
+  age(dt: number): void {
     for (let i = this.pickups.length - 1; i >= 0; i--) {
       const p = this.pickups[i]!;
       p.life -= dt;
-      if (p.life <= 0) {
-        this.removeAt(i);
-        continue;
-      }
-      if (!collector) continue;
+      if (p.life <= 0) this.removeAt(i);
+    }
+  }
+
+  /** Collect the armed stacks within the collector's reach; stacks out of reach arm. */
+  collect(collector: Collector): Partial<Record<ResourceKind, number>> {
+    const collected: Partial<Record<ResourceKind, number>> = {};
+    for (let i = this.pickups.length - 1; i >= 0; i--) {
+      const p = this.pickups[i]!;
       const distance = Math.hypot(collector.x - p.x, collector.z - p.z);
       const within = distance <= collector.radius + this.tuning.reach;
       if (!within) {
@@ -145,6 +158,11 @@ export class LootField {
       }
     }
     return collected;
+  }
+
+  /** Nobody is around to stand on anything (warping, dead): every stack arms. */
+  armAll(): void {
+    for (const p of this.pickups) p.armed = true;
   }
 
   private removeAt(index: number): void {

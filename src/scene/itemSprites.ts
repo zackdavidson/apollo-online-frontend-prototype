@@ -1,7 +1,7 @@
 import { CanvasTexture, Color, DirectionalLight, HemisphereLight, OrthographicCamera, SRGBColorSpace, Scene, Vector3, WebGLRenderTarget, type WebGLRenderer } from 'three';
 import type { Catalog } from '../catalog/catalog';
-import { meshBounds } from '../core/mesh';
-import { DEFAULT_COLOURS } from '../core/palette';
+import { meshBounds, type Bounds, type SurfaceMesh } from '../core/mesh';
+import { DEFAULT_COLOURS, type ShipColours } from '../core/palette';
 import { partMesh } from '../core/ship';
 import type { ItemCatalog, ItemDefinition, ItemId } from '../game/items';
 import { ShipMesh } from '../render/shipMesh';
@@ -26,7 +26,36 @@ export class ItemSpriteAtlas {
 
   /** Render every item in the catalog. Call once after the renderer exists; safe to call again to rebuild. */
   renderAll(): void {
-    const target = new WebGLRenderTarget(this.size, this.size, { colorSpace: SRGBColorSpace });
+    this.withStage(this.size, (stage) => {
+      for (const item of this.items.items) {
+        const mesh = this.buildMesh(item);
+        if (!mesh) continue;
+        const canvas = stage.render(mesh.mesh, mesh.bounds, item.visual.sprite ?? {});
+        mesh.mesh.dispose();
+        const texture = new CanvasTexture(canvas);
+        texture.colorSpace = SRGBColorSpace;
+        this.textures.get(item.id)?.dispose();
+        this.textures.set(item.id, texture);
+        this.icons.set(item.id, canvas.toDataURL('image/png'));
+      }
+    });
+  }
+
+  /** A one-off portrait of any surface (a whole ship, say) as a data URL, framed like the item sprites. */
+  renderSurface(surface: SurfaceMesh, colours: ShipColours, framing: SpriteFraming = {}, size = 128): string {
+    let url = '';
+    this.withStage(size, (stage) => {
+      const mesh = new ShipMesh(colours);
+      mesh.setSurface(surface);
+      url = stage.render(mesh, meshBounds(surface), framing).toDataURL('image/png');
+      mesh.dispose();
+    });
+    return url;
+  }
+
+  /** A lit scene, an orthographic camera and a render target of `size`, torn down after `work`. */
+  private withStage(size: number, work: (stage: { render(mesh: ShipMesh, bounds: Bounds, framing: SpriteFraming): HTMLCanvasElement }) => void): void {
+    const target = new WebGLRenderTarget(size, size, { colorSpace: SRGBColorSpace });
     const scene = new Scene();
     scene.add(new HemisphereLight(0xdfe8ff, 0x1a1a24, 1.0));
     const key = new DirectionalLight(0xffffff, 2.2);
@@ -36,7 +65,7 @@ export class ItemSpriteAtlas {
     fill.position.set(3, 1, 2);
     scene.add(fill);
     const camera = new OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
-    const pixels = new Uint8Array(this.size * this.size * 4);
+    const pixels = new Uint8Array(size * size * 4);
 
     const previousTarget = this.renderer.getRenderTarget();
     const previousColour = new Color();
@@ -44,24 +73,18 @@ export class ItemSpriteAtlas {
     const previousAlpha = this.renderer.getClearAlpha();
     this.renderer.setClearColor(0x000000, 0);
 
-    for (const item of this.items.items) {
-      const mesh = this.buildMesh(item);
-      if (!mesh) continue;
-      scene.add(mesh.mesh);
-      this.frame(camera, mesh.bounds, item);
-      this.renderer.setRenderTarget(target);
-      this.renderer.clear();
-      this.renderer.render(scene, camera);
-      this.renderer.readRenderTargetPixels(target, 0, 0, this.size, this.size, pixels);
-      scene.remove(mesh.mesh);
-      mesh.mesh.dispose();
-      const canvas = toCanvas(pixels, this.size);
-      const texture = new CanvasTexture(canvas);
-      texture.colorSpace = SRGBColorSpace;
-      this.textures.get(item.id)?.dispose();
-      this.textures.set(item.id, texture);
-      this.icons.set(item.id, canvas.toDataURL('image/png'));
-    }
+    work({
+      render: (mesh, bounds, framing) => {
+        scene.add(mesh);
+        frameCamera(camera, bounds, framing);
+        this.renderer.setRenderTarget(target);
+        this.renderer.clear();
+        this.renderer.render(scene, camera);
+        this.renderer.readRenderTargetPixels(target, 0, 0, size, size, pixels);
+        scene.remove(mesh);
+        return toCanvas(pixels, size);
+      },
+    });
 
     this.renderer.setRenderTarget(previousTarget);
     this.renderer.setClearColor(previousColour, previousAlpha);
@@ -87,7 +110,7 @@ export class ItemSpriteAtlas {
     this.icons.clear();
   }
 
-  private buildMesh(item: ItemDefinition): { mesh: ShipMesh; bounds: ReturnType<typeof meshBounds> } | null {
+  private buildMesh(item: ItemDefinition): { mesh: ShipMesh; bounds: Bounds } | null {
     const model = item.visual.model;
     const primitives = model.kind === 'attachment' ? this.parts.findAttachment(model.attachmentId)?.primitives : model.primitives;
     if (!primitives || primitives.length === 0) return null;
@@ -97,25 +120,31 @@ export class ItemSpriteAtlas {
     return { mesh, bounds: meshBounds(surface) };
   }
 
-  /** Point the camera at the model's bounds from the item's chosen three-quarter angle. */
-  private frame(camera: OrthographicCamera, bounds: ReturnType<typeof meshBounds>, item: ItemDefinition): void {
-    const centre = new Vector3((bounds.min[0] + bounds.max[0]) / 2, (bounds.min[1] + bounds.max[1]) / 2, (bounds.min[2] + bounds.max[2]) / 2);
-    const extent = Math.max(bounds.max[0] - bounds.min[0], bounds.max[1] - bounds.min[1], bounds.max[2] - bounds.min[2]) || 1;
-    const sprite = item.visual.sprite ?? {};
-    const yaw = sprite.yaw ?? 0.8;
-    const pitch = sprite.pitch ?? 0.55;
-    const half = (extent * 0.68) / (sprite.zoom ?? 1);
-    const direction = new Vector3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
-    camera.position.copy(centre).addScaledVector(direction, 20);
-    camera.lookAt(centre);
-    camera.left = -half;
-    camera.right = half;
-    camera.top = half;
-    camera.bottom = -half;
-    camera.near = 0.1;
-    camera.far = 60;
-    camera.updateProjectionMatrix();
-  }
+}
+
+export interface SpriteFraming {
+  readonly yaw?: number;
+  readonly pitch?: number;
+  readonly zoom?: number;
+}
+
+/** Point the camera at the model's bounds from a three-quarter angle. */
+function frameCamera(camera: OrthographicCamera, bounds: Bounds, sprite: SpriteFraming): void {
+  const centre = new Vector3((bounds.min[0] + bounds.max[0]) / 2, (bounds.min[1] + bounds.max[1]) / 2, (bounds.min[2] + bounds.max[2]) / 2);
+  const extent = Math.max(bounds.max[0] - bounds.min[0], bounds.max[1] - bounds.min[1], bounds.max[2] - bounds.min[2]) || 1;
+  const yaw = sprite.yaw ?? 0.8;
+  const pitch = sprite.pitch ?? 0.55;
+  const half = (extent * 0.68) / (sprite.zoom ?? 1);
+  const direction = new Vector3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
+  camera.position.copy(centre).addScaledVector(direction, 20);
+  camera.lookAt(centre);
+  camera.left = -half;
+  camera.right = half;
+  camera.top = half;
+  camera.bottom = -half;
+  camera.near = 0.1;
+  camera.far = 60;
+  camera.updateProjectionMatrix();
 }
 
 /** GPU pixels come bottom-up; flip them into a canvas the DOM and textures can use. */

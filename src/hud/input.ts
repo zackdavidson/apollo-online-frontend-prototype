@@ -12,6 +12,8 @@ export interface InputCallbacks {
   onTogglePixelScope(): void;
   /** M: expand or collapse the minimap. */
   onToggleMap(): void;
+  /** J: engage the warp drive towards the waypoint. */
+  onWarp(): void;
   /** Space: talk to a nearby NPC or advance dialogue; `repeat` is true while the key is held. */
   onInteract(repeat: boolean): void;
   /** Enter: put the cursor in the chat box. */
@@ -67,7 +69,7 @@ export class FlightInputTracker {
     this.surface.addEventListener('pointerup', this.onPointerUp);
     this.surface.addEventListener('pointerleave', this.onPointerLeave);
     this.surface.addEventListener('wheel', this.onWheel, { passive: false });
-    this.surface.addEventListener('contextmenu', this.onContextMenu);
+    window.addEventListener('contextmenu', this.onContextMenu);
   }
 
   detach(): void {
@@ -79,7 +81,7 @@ export class FlightInputTracker {
     this.surface.removeEventListener('pointerup', this.onPointerUp);
     this.surface.removeEventListener('pointerleave', this.onPointerLeave);
     this.surface.removeEventListener('wheel', this.onWheel);
-    this.surface.removeEventListener('contextmenu', this.onContextMenu);
+    window.removeEventListener('contextmenu', this.onContextMenu);
   }
 
   snapshot(resolveAim: AimResolver): InputSnapshot {
@@ -135,6 +137,10 @@ export class FlightInputTracker {
       this.callbacks.onToggleMap();
       return;
     }
+    if (event.code === 'KeyJ') {
+      this.callbacks.onWarp();
+      return;
+    }
     const digit = /^(?:Digit|Numpad)([1-3])$/.exec(event.code);
     if (digit) {
       this.callbacks.onSelectGroup(Number(digit[1]) - 1);
@@ -188,6 +194,7 @@ export class FlightInputTracker {
     this.callbacks.onZoom(event.deltaY > 0 ? 1.12 : 1 / 1.12);
   };
 
+  /** No browser menu anywhere while flying: right-click belongs to the game's option menus. */
   private readonly onContextMenu = (event: Event): void => {
     event.preventDefault();
   };

@@ -30,6 +30,8 @@ import { EffectsSystem, createGlowTexture } from './effects';
 import { InstancedBars, type BarEntry } from './healthBars';
 import { createDefaultCatalog } from '../catalog/catalog';
 import { defaultItemCatalog } from '../game/items';
+import type { SurfaceMesh } from '../core/mesh';
+import type { ShipColours } from '../core/palette';
 import { ItemSpriteAtlas } from './itemSprites';
 import { LootRenderer } from './lootRenderer';
 import { createBoundary, createParallaxWorld, type ParallaxWorld } from './parallax';
@@ -265,6 +267,11 @@ export class GameScene {
   /** Beacons are static; set them once per map. */
   setBeacons(beacons: readonly Beacon[]): void {
     this.beacons.setBeacons(beacons);
+  }
+
+  /** A portrait of a ship surface for the HUD, rendered once like the item sprites. */
+  shipPortrait(surface: SurfaceMesh, colours: ShipColours): string {
+    return this.items.renderSurface(surface, colours, { yaw: 0.85, pitch: 0.5, zoom: 1.55 }, 128);
   }
 
   /** Data URLs of every item's sprite, for DOM inventories and tooltips. */

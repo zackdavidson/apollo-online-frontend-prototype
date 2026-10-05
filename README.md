@@ -226,6 +226,26 @@ message) and insists the four resources exist. Drops are config too: each
 rock kind in `game/rocks.ts` has a drop table of item lines (`item`,
 `perRadius`, `flat`, `chance`), and the comet's payload names item ids.
 
+**Drops are stacks that sit still.** Breaking a rock drops one stack per
+item ("Ice × 5") beside it; a stack never moves and is collected whole when
+the ship comes within a few units of it, or on purpose with its Take
+option. Stacks the player drops from the hold stay disarmed until the ship
+has moved away (or warped), so dropping is not undone on the spot.
+Hovering a stack outlines it in white, like a rock, with a tooltip naming
+the item, count and worth. Drop sprites live on the overlay layer, so
+pixelation never touches them.
+
+**Options, old-school.** Right-click anything to get its options, default
+first; a quick left click (a tap, not a held fire) performs the default.
+Ground items: Take, Examine. Rocks: Mine, Examine. The comet: Mine,
+Examine. Ships: Talk to (when in range), Examine. Items in the hold:
+Examine, Drop. Items fitted to the ship (the Ship tab): Select its weapon
+group, Examine. Examine writes a line to the chat. Mine starts auto-mining:
+the ship selects its beam group, holds its aim on the target and fires
+until it breaks, you move, or it is out of your mining tool's range. The
+option lists are pure data in `src/game/actions.ts`, so a server could own
+them.
+
 **Sprites, rendered once.** At start, `scene/itemSprites.ts` renders every
 item's model from a fixed three-quarter angle into a 96 px transparent
 image and keeps it as a texture and a data URL. Dropped items on the
@@ -397,15 +417,28 @@ main window, then leaves flight.
   vertical by default so the ship reads as 2.5D. The orthographic camera
   shares the same rig and framing for a fair comparison. North (map +y) is
   always up the screen.
-- **Minimap.** A square minimap in the bottom-right corner: the whole map
-  fills it, north up, N/E/S/W sitting on the frame, a faint grid, rocks as
-  dots, planets, gas clouds as translucent discs, beacons as diamonds,
-  map-authored icons, enemies in red, the comet with its heading, and your
-  ship as a white dot with a heading tick. Press M or the corner button to
+- **The look.** Brass-and-glass panels with corner brackets, a bezelled
+  minimap, a ship frame with a rendered portrait of your own hull and
+  segmented shield and hull bars, a navigation strip (position, heading
+  with a turning arrow, speed), an action bar whose slots carry the fitted
+  weapons' sprites with key badges and cooldown shades, a Comms header on
+  the chat, a sixteen-slot hold, and gold banner messages. No camera,
+  tilt, zoom or "no comet" readouts: those were debug.
+- **Your own tag.** Other ships carry a framed nametag with shield and
+  hull bars above them. Your own ship just has its name hung under the
+  hull with nothing around it; your shield and hull bars sit under the
+  minimap instead.
+- **Minimap.** A square minimap top-right showing the 260 units around
+  your ship, north up, with a world-aligned grid that slides under you and
+  the sector edge where it comes into view; N/E/S/W sit on the frame.
+  Rocks are dots, planets discs, gas clouds translucent discs, beacons
+  diamonds, map-authored icons pins, enemies red, the comet shows its
+  heading, and your ship is the white dot in the middle. Expanding it (M)
+  shows the whole sector instead. Press M or the corner button to
   expand it into a large map with a ten-by-ten grid, coordinate ticks, every
   label and icon name, and a live readout of the map coordinate under the
-  cursor (handy when writing markers). Clicking either map warps there; Esc
-  or M closes the big one.
+  cursor (handy when writing markers). Clicking the big one sets a waypoint; Esc
+  or M closes it.
 - **Zoom.** The wheel zooms between 55 and 320 units of camera distance,
   from a close fighter view out to roughly a 600-unit-wide field.
 - **Map.** 10,000 x 10,000 units, bounded by a line square. Depth order is
@@ -478,15 +511,17 @@ main window, then leaves flight.
   multiply the chunks. Flying into it stops you against it and carries you
   along. When it is mined out or flies off the map, a new one enters from
   another edge 25 seconds later. Logic in `flight/comet.ts`.
-- **Minimap warp.** Click anywhere on the minimap to warp there. The drive
-  spools for half a second (nose swings onto the heading, ship shivers),
-  the view blanks out into a hyperspace tunnel of streaking stars, and the
-  destination fades back in with the ship already sitting there. The tunnel
-  lasts about 0.4 s plus one second per 2,200 units, clamped to 0.8 to
-  4.5 s, with a countdown in the HUD. Input and collisions are suspended
-  while warping. Phase maths in `flight/warp.ts`, tunnel drawing in
-  `flight/warpTunnel.ts`. An edge arrow with a distance label points at the
-  comet whenever it is off screen.
+- **Waypoints and the warp drive.** The small map is read-only. Expand it
+  (M) and click to set a waypoint there (click it again to clear). The
+  waypoint shows on both maps as a cyan diamond with a dashed line from
+  the ship, and in the world as an edge arrow with its distance, or a
+  blinking diamond on the spot when in view, like the comet's indicator.
+  A dashed ring on both maps shows the warp drive's reach (600 units).
+  While the map is open the ship holds still. Clicking a spot puts a
+  "Warp here" button right under the waypoint on the map (greyed with the
+  shortfall when it is beyond the ring); pressing it, or J, closes the map
+  and jumps. The drive still blanks out and tunnels as before, and the
+  waypoint clears on arrival.
 - **Pixelation.** The top-right selects (or P and O) set a pixelation level
   (Off, Light, Medium, Heavy, Retro) and a scope. "3D only" renders the 2D
   backdrop sharp and composites the ships, rocks, shots and effects from a

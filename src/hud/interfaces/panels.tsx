@@ -4,24 +4,40 @@ import { useServices, useStoreValue, type InterfaceViewProps } from './context';
 
 /** Interface 2, the expanded map: React owns the frame, the HUD draws into the canvas through the map bridge. */
 export function MapInterface(_: InterfaceViewProps) {
-  const { map } = useServices();
+  const { map, actions } = useServices<unknown, { onWarp(): void }>();
   const title = useStoreValue(map.title);
   const cursor = useStoreValue(map.cursor);
+  const waypoint = useStoreValue(map.waypoint);
   const attach = useCallback((canvas: HTMLCanvasElement | null) => map.attach(canvas), [map]);
   return (
     <div className="hud hud-bigmap">
       <div className="bigmap-title">
         <span>{title}</span>
-        <span className="muted">click to warp · M or Esc closes</span>
+        <span className="muted">click to set a waypoint · ship holds still while open · M or Esc closes</span>
       </div>
-      <canvas
-        ref={attach}
-        title="Click to warp there"
-        data-component-id={0}
-        onPointerDown={(event: PointerEvent<HTMLCanvasElement>) => map.onPointerDown(event.nativeEvent)}
-        onPointerMove={(event: PointerEvent<HTMLCanvasElement>) => map.onPointerMove(event.nativeEvent)}
-        onPointerLeave={() => map.onPointerLeave()}
-      />
+      <div className="bigmap-canvas-wrap">
+        <canvas
+          ref={attach}
+          title="Click to set a waypoint"
+          data-component-id={0}
+          onPointerDown={(event: PointerEvent<HTMLCanvasElement>) => map.onPointerDown(event.nativeEvent)}
+          onPointerMove={(event: PointerEvent<HTMLCanvasElement>) => map.onPointerMove(event.nativeEvent)}
+          onPointerLeave={() => map.onPointerLeave()}
+        />
+        {waypoint ? (
+          <button
+            type="button"
+            className={`bigmap-warp${waypoint.inRange ? ' ready' : ''}`}
+            style={{ left: waypoint.x, top: waypoint.y }}
+            disabled={!waypoint.inRange}
+            data-component-id={1}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={() => actions.onWarp()}
+          >
+            {waypoint.inRange ? `Warp here · ${waypoint.distance.toFixed(0)} u` : `Out of range · ${waypoint.distance.toFixed(0)} / ${waypoint.range} u`}
+          </button>
+        ) : null}
+      </div>
       <div className="bigmap-caption">
         <span className="muted">map coordinates, (0, 0) bottom-left</span>
         <span className="muted">{cursor}</span>
