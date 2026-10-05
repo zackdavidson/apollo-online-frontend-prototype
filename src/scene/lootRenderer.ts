@@ -60,8 +60,8 @@ export class LootRenderer {
         hovered = true;
         this.outline.material = this.outlineMaterialFor(p.kind);
         this.outline.position.copy(sprite.position);
-        this.outline.position.y -= 0.01;
-        this.outline.scale.set(size * 1.16, size * 1.16, 1);
+        // Same size as the item: the outline texture already carries the grown edge.
+        this.outline.scale.set(size, size, 1);
       }
     }
     this.outline.visible = hovered;
@@ -78,12 +78,12 @@ export class LootRenderer {
     this.sprites.length = 0;
   }
 
-  /** The item's alpha as a flat white silhouette, the same outline the rocks get. */
+  /** The item's dilated white silhouette: an even outline around the whole shape, like a hovered rock. */
   private outlineMaterialFor(kind: string): SpriteMaterial {
     let material = this.outlineMaterials.get(kind);
     if (!material) {
-      const alphaMap = this.atlas.textureFor(kind);
-      material = new SpriteMaterial({ color: 0xffffff, transparent: true, depthWrite: false, opacity: 0.9, ...(alphaMap ? { alphaMap } : {}) });
+      const map = this.atlas.outlineTextureFor(kind);
+      material = new SpriteMaterial({ color: 0xffffff, transparent: true, depthWrite: false, opacity: 1, ...(map ? { map } : {}) });
       this.outlineMaterials.set(kind, material);
     }
     return material;

@@ -52,6 +52,7 @@ export function CargoTab() {
           <div key={`vacant-${index}`} className="cargo-slot vacant" />
         ))}
       </div>
+      <div className="muted inv-footer">{held.length === 0 ? 'Hold empty' : info ? `worth ${inventoryValue(info.cargo)} · rocks broken ${info.rocksBroken}` : ''}</div>
     </>
   );
 }

@@ -15,6 +15,8 @@ import { ShipMesh } from '../render/shipMesh';
  */
 export class ItemSpriteAtlas {
   private readonly textures = new Map<ItemId, CanvasTexture>();
+  /** Solid white, dilated copies of each sprite: the hover outline, drawn behind the item at the same scale. */
+  private readonly outlines = new Map<ItemId, CanvasTexture>();
   private readonly icons = new Map<ItemId, string>();
 
   constructor(
@@ -36,6 +38,10 @@ export class ItemSpriteAtlas {
         texture.colorSpace = SRGBColorSpace;
         this.textures.get(item.id)?.dispose();
         this.textures.set(item.id, texture);
+        const outline = new CanvasTexture(outlineOf(canvas, OUTLINE_PX));
+        outline.colorSpace = SRGBColorSpace;
+        this.outlines.get(item.id)?.dispose();
+        this.outlines.set(item.id, outline);
         this.icons.set(item.id, canvas.toDataURL('image/png'));
       }
     });
@@ -95,6 +101,11 @@ export class ItemSpriteAtlas {
     return this.textures.get(id);
   }
 
+  /** The item's hover outline: its silhouette grown by a few pixels, in white, on the same canvas size. */
+  outlineTextureFor(id: ItemId): CanvasTexture | undefined {
+    return this.outlines.get(id);
+  }
+
   iconUrl(id: ItemId): string | undefined {
     return this.icons.get(id);
   }
@@ -106,7 +117,9 @@ export class ItemSpriteAtlas {
 
   dispose(): void {
     for (const texture of this.textures.values()) texture.dispose();
+    for (const texture of this.outlines.values()) texture.dispose();
     this.textures.clear();
+    this.outlines.clear();
     this.icons.clear();
   }
 
@@ -145,6 +158,49 @@ function frameCamera(camera: OrthographicCamera, bounds: Bounds, sprite: SpriteF
   camera.near = 0.1;
   camera.far = 60;
   camera.updateProjectionMatrix();
+}
+
+/** Outline thickness in sprite pixels (the sprite is 96 px, so this is a crisp edge, not a halo). */
+const OUTLINE_PX = 3;
+
+/**
+ * Grow a sprite's alpha by `radius` pixels and paint it solid white: drawn
+ * behind the sprite at the same size it reads as an even outline around the
+ * whole shape, however irregular.
+ */
+function outlineOf(source: HTMLCanvasElement, radius: number): HTMLCanvasElement {
+  const size = source.width;
+  const alpha = source.getContext('2d')!.getImageData(0, 0, size, size).data;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext('2d')!;
+  const out = context.createImageData(size, size);
+  const offsets: Array<[number, number]> = [];
+  for (let dy = -radius; dy <= radius; dy++) for (let dx = -radius; dx <= radius; dx++) if (dx * dx + dy * dy <= radius * radius + radius) offsets.push([dx, dy]);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      let best = 0;
+      for (const [dx, dy] of offsets) {
+        const sx = x + dx;
+        const sy = y + dy;
+        if (sx < 0 || sy < 0 || sx >= size || sy >= size) continue;
+        const a = alpha[(sy * size + sx) * 4 + 3]!;
+        if (a > best) {
+          best = a;
+          if (best === 255) break;
+        }
+      }
+      if (best === 0) continue;
+      const i = (y * size + x) * 4;
+      out.data[i] = 255;
+      out.data[i + 1] = 255;
+      out.data[i + 2] = 255;
+      out.data[i + 3] = best;
+    }
+  }
+  context.putImageData(out, 0, 0);
+  return canvas;
 }
 
 /** GPU pixels come bottom-up; flip them into a canvas the DOM and textures can use. */
