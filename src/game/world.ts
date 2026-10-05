@@ -14,6 +14,14 @@ export type ShipId = string;
 /** Ships on the same team never damage each other. */
 export type Team = string;
 
+/**
+ * How a ship treats other teams. A friendly ship is not an enemy to anyone:
+ * its AI holds fire, it is not shown as hostile and missiles ignore it. It
+ * turns hostile when a weapon hit from another team lands on it, or when
+ * its own controller decides to attack (an ambush).
+ */
+export type Stance = 'friendly' | 'hostile';
+
 /** Everything needed to put a ship into the simulation. Purely gameplay: no colours or meshes. */
 export interface ShipSpec {
   readonly id: ShipId;
@@ -37,6 +45,12 @@ export interface ShipSpec {
   readonly collectsLoot?: boolean;
   /** NPC brain. Omitted means the ship is driven through `WorldSim.setInput`. */
   readonly controller?: ShipController;
+  /** Starting stance toward other teams; hostile when omitted. Restored on respawn. */
+  readonly stance?: Stance;
+  /** False for ships that never turn hostile when shot (quest givers, traders). True when omitted. */
+  readonly provokable?: boolean;
+  /** True for ships nothing can hurt: shots, rams and gas all pass without effect, and they never die. */
+  readonly invulnerable?: boolean;
 }
 
 /** Live record of a ship. Mutated by the simulation only; read by everyone else. */
@@ -46,6 +60,10 @@ export interface ShipEntity {
   state: FlightState;
   vitals: Vitals;
   alive: boolean;
+  /** Current stance toward other teams; see `Stance`. */
+  stance: Stance;
+  /** True while the ship is frozen in place (talking to an NPC, docking): no motion, no input. */
+  held: boolean;
   /** When a dead ship comes back (see `spec.respawnDelay`). */
   respawnAt: number;
   /** Latest input, from `setInput` or the controller. */

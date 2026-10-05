@@ -86,6 +86,21 @@ describe('parseMapDefinition', () => {
     expect(() => parseMapDefinition({ objects: [{ type: 'gas-cloud', x: 1, y: 1, radius: 'big' }] })).toThrow(/map\.objects\[0\]\.radius/);
   });
 
+  it('reads minimap markers with defaults and validates icon names', () => {
+    const parsed = parseMapDefinition({ size: 4000, markers: [{ type: 'label', x: 100, y: 200, text: 'Here' }, { type: 'icon', x: 4000, y: 0, icon: 'mine', label: 'Ore' }] });
+    expect(parsed.markers).toEqual([
+      { type: 'label', x: 100, y: 200, text: 'Here', colour: '#dfe6f2', size: 11, onMinimap: false },
+      { type: 'icon', x: 4000, y: 0, icon: 'mine', label: 'Ore', colour: null, onMinimap: true },
+    ]);
+    const resolved = resolveMap(parsed);
+    expect(resolved.markers[0]).toMatchObject({ type: 'label', x: 1900, z: -1800 });
+    expect(resolved.markers[1]).toMatchObject({ type: 'icon', x: -2000, z: -2000, icon: 'mine' });
+    expect(() => parseMapDefinition({ markers: [{ type: 'icon', x: 1, y: 1, icon: 'dragon' }] })).toThrow(/map\.markers\[0\]\.icon/);
+    expect(() => parseMapDefinition({ markers: [{ type: 'note', x: 1, y: 1 }] })).toThrow(/map\.markers\[0\]\.type/);
+    expect(() => parseMapDefinition({ markers: [{ type: 'label', x: 1, y: 1 }] })).toThrow(/map\.markers\[0\]\.text/);
+    expect(provingGroundMapDefinition().markers.length).toBeGreaterThan(3);
+  });
+
   it('rejects bad input with the offending path', () => {
     expect(() => parseMapDefinition(null)).toThrow(MapParseError);
     expect(() => parseMapDefinition({ size: 'big' })).toThrow(/map\.size/);

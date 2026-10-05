@@ -1472,5 +1472,50 @@
       "label": "Toxic gas",
       "colour": "#9bff3d"
     }
+  ],
+  "markers": [
+    {
+      "type": "icon",
+      "x": 2000,
+      "y": 2000,
+      "icon": "home",
+      "label": "Spawn"
+    },
+    {
+      "type": "icon",
+      "x": 2424,
+      "y": 2424,
+      "icon": "mine",
+      "label": "Iron ring"
+    },
+    {
+      "type": "icon",
+      "x": 1250,
+      "y": 2000,
+      "icon": "skull",
+      "label": "West cloud"
+    },
+    {
+      "type": "icon",
+      "x": 2000,
+      "y": 3600,
+      "icon": "gate",
+      "label": "North Gate"
+    },
+    {
+      "type": "icon",
+      "x": 2000,
+      "y": 400,
+      "icon": "gate",
+      "label": "South Gate"
+    },
+    {
+      "type": "label",
+      "x": 2000,
+      "y": 2000,
+      "text": "IRON RING ARENA",
+      "colour": "#9fb3cc",
+      "size": 12
+    }
   ]
 }

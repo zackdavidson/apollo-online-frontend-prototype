@@ -3,8 +3,10 @@ import { OrthographicCamera, PerspectiveCamera, type Camera } from 'three';
 export type CameraMode = 'perspective' | 'orthographic';
 
 const FOV_DEGREES = 50;
-const MIN_DISTANCE = 35;
-const MAX_DISTANCE = 170;
+/** Closest the camera gets: a fighter fills about a fifth of the screen height. */
+const MIN_DISTANCE = 55;
+/** Furthest out: roughly a 600-unit-wide view, enough to read a whole sector. */
+const MAX_DISTANCE = 320;
 const MIN_TILT = 0;
 const MAX_TILT = 62;
 const FOLLOW_RATE = 6;

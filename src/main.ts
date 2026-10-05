@@ -16,6 +16,8 @@ import { resolveParts } from './state/shipState';
 import { Store } from './state/store';
 import { FlightSession, type SessionShip } from './flight/flightSession';
 import { type MapDefinition, MapParseError, type ResolvedMap, parseMapDefinition, provingGroundMapDefinition, resolveMap } from './game/map';
+import { IdleController, TURRET_AI, TurretAi } from './game/controllers';
+import type { DialogueLine } from './hud/chat';
 import { fromMapCoords } from './game/mapCoords';
 import { WEAPON_PROFILES, weaponProfileFor } from './game/weapons';
 import { SceneView } from './render/sceneView';
@@ -136,12 +138,31 @@ function enterFlight(): void {
   if (flight) return;
   const state = store.get();
   const raider = createShipState(catalog.getHull('hull-gunship'), { main: '#5a2d2d', trim: '#e8e0c9' });
+  const navigatorShip = createShipState(catalog.getHull('hull-hauler'), { main: '#2f6f4f', trim: '#e8e0c9' });
   scene.setActive(false);
   document.body.dataset['mode'] = 'flight';
   const map = resolveMap(currentMap);
   flight = new FlightSession(flightRoot!, {
     player: sessionShip(state, `${catalog.getHull(state.hullId).name} (you)`),
-    npcs: [{ ...sessionShip(raider, 'Raider'), ...raiderPosition(map) }],
+    // The raider starts friendly: it holds fire until you shoot it, or until
+    // you hang around within 70 units for a couple of seconds and it jumps you.
+    npcs: [
+      { ...sessionShip(raider, 'Raider'), ...raiderPosition(map), stance: 'friendly', controller: new TurretAi({ ...TURRET_AI, ambushRange: 70, ambushDelay: 2 }) },
+      // The Navigator: a guild ship parked in the top-right corner that you can talk to with Space.
+      {
+        ...sessionShip(navigatorShip, 'Navigator'),
+        ...navigatorPosition(map),
+        heading: Math.PI * 1.25,
+        team: 'guild',
+        stance: 'friendly',
+        provokable: false,
+        invulnerable: true,
+        controller: new IdleController(),
+        respawnDelay: null,
+        accent: '#7fe3a0',
+        dialogue: { range: NAVIGATOR_TALK_RANGE, lines: NAVIGATOR_LINES },
+      },
+    ],
     map,
     onExit: exitFlight,
   });
@@ -158,6 +179,25 @@ function raiderPosition(map: ResolvedMap): { x: number; z: number } {
   const far = Math.hypot(corner.x - map.spawn.x, corner.z - map.spawn.z) > 400;
   return far ? { x: map.spawn.x + 70, z: map.spawn.z + 95 } : corner;
 }
+
+/** The Navigator parks in the top-right corner of small maps, otherwise just off the spawn. */
+function navigatorPosition(map: ResolvedMap): { x: number; z: number } {
+  const size = map.halfExtent * 2;
+  const corner = fromMapCoords(size * 0.89, size * 0.91, map.halfExtent);
+  const far = Math.hypot(corner.x - map.spawn.x, corner.z - map.spawn.z) > 400;
+  return far ? { x: map.spawn.x - 45, z: map.spawn.z + 30 } : corner;
+}
+
+/** How close (centre to centre) you must be to talk to the Navigator. */
+const NAVIGATOR_TALK_RANGE = 30;
+const NAVIGATOR_PORTRAIT = `${import.meta.env.BASE_URL}assets/portraits/navigator.png`;
+const NAVIGATOR_LINES: readonly DialogueLine[] = [
+  { speaker: 'Navigator', portrait: NAVIGATOR_PORTRAIT, text: 'Welcome to the Proving Ground, pilot. I chart these lanes for the Guild.' },
+  { speaker: 'Navigator', portrait: NAVIGATOR_PORTRAIT, text: 'That green drift to the north-west is toxic gas. Your shields will soak it for a while. Your hull will not.' },
+  { speaker: 'Navigator', portrait: NAVIGATOR_PORTRAIT, text: 'The raider in the south-west corner looks friendly enough. Do not trust him inside seventy units.' },
+  { speaker: 'Navigator', portrait: NAVIGATOR_PORTRAIT, text: 'There is iron to the east and crystal to the south. Press M for the map, and bring crystal back when you can.' },
+  { speaker: 'Navigator', portrait: NAVIGATOR_PORTRAIT, text: 'Safe flying.' },
+];
 
 function exitFlight(): void {
   if (!flight) return;

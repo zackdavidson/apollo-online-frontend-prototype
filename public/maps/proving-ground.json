@@ -261,5 +261,79 @@
       "colour": "#6fd3ff",
       "radius": 12
     }
+  ],
+  "markers": [
+    {
+      "type": "icon",
+      "x": 250,
+      "y": 250,
+      "icon": "home",
+      "label": "Spawn",
+      "colour": null,
+      "onMinimap": true
+    },
+    {
+      "type": "icon",
+      "x": 350,
+      "y": 345,
+      "icon": "mine",
+      "label": "Iron field",
+      "colour": null,
+      "onMinimap": true
+    },
+    {
+      "type": "icon",
+      "x": 320,
+      "y": 140,
+      "icon": "crystal",
+      "label": "Crystal vein",
+      "colour": null,
+      "onMinimap": true
+    },
+    {
+      "type": "icon",
+      "x": 150,
+      "y": 390,
+      "icon": "skull",
+      "label": "The Drift",
+      "colour": null,
+      "onMinimap": true
+    },
+    {
+      "type": "icon",
+      "x": 60,
+      "y": 60,
+      "icon": "flag",
+      "label": "Raider's corner",
+      "colour": "#ff5c5c",
+      "onMinimap": true
+    },
+    {
+      "type": "icon",
+      "x": 420,
+      "y": 430,
+      "icon": "shop",
+      "label": "Crystal cache",
+      "colour": null,
+      "onMinimap": true
+    },
+    {
+      "type": "label",
+      "x": 110,
+      "y": 255,
+      "text": "Ice shelf",
+      "colour": "#bfe0f0",
+      "size": 11,
+      "onMinimap": false
+    },
+    {
+      "type": "label",
+      "x": 430,
+      "y": 95,
+      "text": "The Giant",
+      "colour": "#c9b59a",
+      "size": 11,
+      "onMinimap": false
+    }
   ]
 }

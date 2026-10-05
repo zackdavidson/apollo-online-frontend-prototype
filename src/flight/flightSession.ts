@@ -14,8 +14,9 @@ import { ROCK_KINDS, type Rock } from '../game/rocks';
 import { WorldSim } from '../game/simulation';
 import { sampleWarp } from '../game/warp';
 import { WEAPON_GROUPS } from '../game/weapons';
-import type { Pick, ShipEntity, ShipId } from '../game/world';
+import type { Pick, ShipEntity, ShipId, Stance } from '../game/world';
 import { HitMarkers, type HitStyle } from '../hud/hitMarkers';
+import type { DialogueLine } from '../hud/chat';
 import { FlightHud } from '../hud/hud';
 import { FlightInputTracker } from '../hud/input';
 import { WorldLabels } from '../hud/labels';
@@ -46,7 +47,24 @@ export interface NpcSpawn extends SessionShip {
   readonly damageScale?: number;
   readonly controller?: ShipController;
   readonly accent?: string;
+  /** Friendly ships hold fire and are not shown as enemies until provoked (or until their AI ambushes). */
+  readonly stance?: Stance;
+  /** False for ships that never turn hostile when shot. */
+  readonly provokable?: boolean;
+  /** True for ships nothing can hurt; they also get no shield and no bars over their name. */
+  readonly invulnerable?: boolean;
+  /** What the ship says when you press Space next to it. */
+  readonly dialogue?: NpcDialogue;
 }
+
+export interface NpcDialogue {
+  /** How close (centre to centre) you must be to talk; `DEFAULT_INTERACT_RANGE` when omitted. */
+  readonly range?: number;
+  readonly lines: readonly DialogueLine[];
+}
+
+/** Default talking distance from the player's centre, in world units. */
+export const DEFAULT_INTERACT_RANGE = 30;
 
 export interface FlightSessionOptions {
   readonly player: SessionShip;
@@ -69,6 +87,8 @@ const MISSILE_SMOKE = '#8a8a8a';
 const SHIELD_COLOUR = '#5fb4ff';
 const COMET_ACCENT = '#9fd8ff';
 const NPC_ACCENT = '#ff6a3a';
+/** Label and tooltip colour for ships that are friendly right now. */
+const FRIENDLY_ACCENT = '#7fe3a0';
 const PIXEL_SETTINGS_KEY = 'shipyard.pixelation';
 const ROCK_BAR_COLOURS: Readonly<Record<Rock['kind'], string>> = {
   stone: '#d9b26a',
@@ -99,6 +119,11 @@ export class FlightSession {
   private readonly hitMarkers: HitMarkers;
   private readonly input: FlightInputTracker;
   private readonly accents = new Map<ShipId, string>();
+  /** The accent each NPC uses once hostile; friendly ships show FRIENDLY_ACCENT until then. */
+  private readonly hostileAccents = new Map<ShipId, string>();
+  private readonly dialogues = new Map<ShipId, NpcDialogue>();
+  /** The NPC you could talk to right now, if any. */
+  private talkable: ShipEntity | null = null;
   private hovered: Pick = null;
   private message: { text: string; until: number } | null = null;
   private npcCounter = 0;
@@ -149,22 +174,36 @@ export class FlightSession {
       onToggleCamera: () => this.scene.camera.toggleMode(),
       onPixelLevel: (index) => this.setPixelation(index, this.scene.pixelScope),
       onPixelScope: (scope) => this.setPixelation(this.scene.pixelLevel, scope),
-      onTeleport: (x, z) => this.sim.requestWarp(PLAYER_ID, x, z),
+      onTeleport: (x, z) => {
+        if (!this.inDialogue) this.sim.requestWarp(PLAYER_ID, x, z);
+      },
+      onChatSend: (text) => this.chatSend(text),
     });
     this.input = new FlightInputTracker(this.scene.surface, {
-      onExit: options.onExit,
-      onToggleCamera: () => this.scene.camera.toggleMode(),
-      onZoom: (factor) => this.scene.camera.zoomBy(factor),
+      // Esc closes whatever is open first (dialogue, help, map), then leaves flight.
+      onExit: () => {
+        if (this.hud.chat.dialogueOpen) this.hud.chat.closeDialogue();
+        else if (this.hud.helpVisible) this.hud.setHelpVisible(false);
+        else if (this.hud.mapExpanded) this.hud.setMapExpanded(false);
+        else options.onExit();
+      },
+      // While talking, only Space (advance) and Esc (close) do anything.
+      onToggleCamera: () => this.unlessTalking(() => this.scene.camera.toggleMode()),
+      onToggleMap: () => this.unlessTalking(() => this.hud.setMapExpanded(!this.hud.mapExpanded)),
+      onInteract: (repeat) => this.interact(repeat),
+      onChatFocus: () => this.unlessTalking(() => this.hud.chat.focusInput()),
+      onZoom: (factor) => this.unlessTalking(() => this.scene.camera.zoomBy(factor)),
       onSelectGroup: (index) => {
         const group = WEAPON_GROUPS[index];
-        if (group) this.sim.selectWeaponGroup(PLAYER_ID, group.id);
+        if (group) this.unlessTalking(() => this.sim.selectWeaponGroup(PLAYER_ID, group.id));
       },
-      onCyclePixelation: () => this.setPixelation((this.scene.pixelLevel + 1) % PIXEL_LEVELS.length, this.scene.pixelScope),
-      onTogglePixelScope: () => this.setPixelation(this.scene.pixelLevel, this.scene.pixelScope === '3d' ? 'all' : '3d'),
+      onCyclePixelation: () => this.unlessTalking(() => this.setPixelation((this.scene.pixelLevel + 1) % PIXEL_LEVELS.length, this.scene.pixelScope)),
+      onTogglePixelScope: () => this.unlessTalking(() => this.setPixelation(this.scene.pixelLevel, this.scene.pixelScope === '3d' ? 'all' : '3d')),
     });
     this.input.attach();
     this.scene.camera.snapTo(map.spawn.x, map.spawn.z);
     this.message = { text: map.name, until: 3 };
+    this.hud.chat.addMessage({ from: '', kind: 'system', text: `Welcome to ${map.name}. Press Enter to chat, Space to talk to ships, /help for controls.` });
     this.frameHandle = requestAnimationFrame(this.frame);
   }
 
@@ -179,15 +218,20 @@ export class FlightSession {
       team: npc.team ?? 'raiders',
       radius,
       weaponMounts: npc.weaponMounts,
-      maxShield: npc.maxShield ?? COMBAT_TUNING.enemyShield,
+      maxShield: npc.invulnerable ? 0 : (npc.maxShield ?? COMBAT_TUNING.enemyShield),
       maxHull: npc.maxHull ?? COMBAT_TUNING.enemyHull,
       spawn: { x: npc.x, z: npc.z, heading: npc.heading ?? Math.PI },
       respawnDelay: npc.respawnDelay === undefined ? COMBAT_TUNING.enemyRespawnDelay : npc.respawnDelay,
       tuning: { turnRate: COMBAT_TUNING.enemyTurnRate, accel: 0, strafeAccel: 0, reverseAccel: 0 },
       damageScale: npc.damageScale ?? 0.35,
       controller: npc.controller ?? new TurretAi(),
+      stance: npc.stance,
+      provokable: npc.provokable,
+      invulnerable: npc.invulnerable,
     });
-    const accent = npc.accent ?? NPC_ACCENT;
+    if (npc.dialogue) this.dialogues.set(id, npc.dialogue);
+    this.hostileAccents.set(id, npc.accent ?? NPC_ACCENT);
+    const accent = npc.stance === 'friendly' ? FRIENDLY_ACCENT : (npc.accent ?? NPC_ACCENT);
     this.scene.addShip(id, { surface: npc.surface, colours: npc.colours, accent, radius });
     this.accents.set(id, accent);
     return id;
@@ -202,6 +246,7 @@ export class FlightSession {
   }
 
   dispose(): void {
+    this.hud.chat.dispose();
     if (this.disposed) return;
     this.disposed = true;
     cancelAnimationFrame(this.frameHandle);
@@ -326,7 +371,7 @@ export class FlightSession {
     this.hitMarkers.update(dt, this.scene.camera.camera, width, height);
     for (const ship of this.sim.allShips()) {
       const screen = ship.alive ? this.scene.project(ship.state.x, LABEL_HEIGHT, ship.state.z) : null;
-      this.labels.update(ship.spec.id, screen, { name: ship.spec.name, vitals: ship.vitals, accent: this.accents.get(ship.spec.id) ?? NPC_ACCENT });
+      this.labels.update(ship.spec.id, screen, { name: ship.spec.name, vitals: ship.vitals, accent: this.accents.get(ship.spec.id) ?? NPC_ACCENT, showBars: !ship.spec.invulnerable });
     }
 
     const comet = this.sim.comet;
@@ -337,10 +382,11 @@ export class FlightSession {
       this.hud.setCometIndicator(null);
     }
 
-    const enemies = [...this.sim.allShips()]
-      .filter((ship) => ship.alive && ship.spec.team !== player.spec.team)
-      .map((ship) => ({ x: ship.state.x, z: ship.state.z }))
-      .sort((a, b) => Math.hypot(a.x - player.state.x, a.z - player.state.z) - Math.hypot(b.x - player.state.x, b.z - player.state.z));
+    const byDistance = (a: { x: number; z: number }, b: { x: number; z: number }): number =>
+      Math.hypot(a.x - player.state.x, a.z - player.state.z) - Math.hypot(b.x - player.state.x, b.z - player.state.z);
+    const others = [...this.sim.allShips()].filter((ship) => ship.alive && ship.spec.team !== player.spec.team);
+    const enemies = others.filter((ship) => ship.stance === 'hostile').map((ship) => ({ x: ship.state.x, z: ship.state.z })).sort(byDistance);
+    const neutrals = others.filter((ship) => ship.stance === 'friendly').map((ship) => ({ x: ship.state.x, z: ship.state.z })).sort(byDistance);
     this.hud.update({
       x: player.state.x,
       z: player.state.z,
@@ -356,6 +402,7 @@ export class FlightSession {
       kills: player.kills,
       deaths: player.deaths,
       enemies,
+      neutrals,
       message: this.message?.text ?? (player.warp ? this.warpMessage(player) : null),
       weapons: this.sim.weaponStatus(PLAYER_ID),
       cargo: player.cargo,
@@ -363,10 +410,61 @@ export class FlightSession {
       pixelScope: this.scene.pixelScope,
       beacons: this.sim.beacons.beacons,
       hazards: this.sim.hazards.hazards,
+      markers: this.sim.map.markers,
+      mapName: this.sim.map.name,
       comet: comet.alive ? comet : null,
     });
     const inside = player.alive ? this.sim.hazards.insideFor(PLAYER_ID)[0] : undefined;
     this.hud.setHazardWarning(inside ? { label: inside.label, damagePerSecond: inside.damagePerSecond, colour: inside.colour } : null);
+
+    // Who can be talked to: the nearest living ship with dialogue inside its talking range.
+    this.talkable = null;
+    let best = Infinity;
+    for (const [id, dialogue] of this.dialogues) {
+      const npc = this.sim.getShip(id);
+      if (!npc || !npc.alive || !player.alive) continue;
+      const distance = Math.hypot(npc.state.x - player.state.x, npc.state.z - player.state.z);
+      if (distance <= (dialogue.range ?? DEFAULT_INTERACT_RANGE) && distance < best) {
+        best = distance;
+        this.talkable = npc;
+      }
+    }
+    this.hud.setInteractPrompt(this.talkable && !this.hud.chat.dialogueOpen ? { key: 'Space', text: `Talk to ${this.talkable.spec.name}` } : null);
+  }
+
+  /** Space: advance an open dialogue (held key repeats skip), or start one with the ship in range. */
+  private interact(repeat: boolean): void {
+    if (this.hud.chat.dialogueOpen) {
+      this.hud.chat.advanceDialogue(repeat);
+      return;
+    }
+    if (repeat || !this.talkable) return;
+    const dialogue = this.dialogues.get(this.talkable.spec.id);
+    if (!dialogue) return;
+    // Dialogue mode: the ship stops dead and stays put until the conversation ends.
+    this.sim.setHeld(PLAYER_ID, true);
+    this.hud.chat.openDialogue({ lines: dialogue.lines }, () => this.sim.setHeld(PLAYER_ID, false));
+  }
+
+  private get inDialogue(): boolean {
+    return this.hud.chat.dialogueOpen;
+  }
+
+  private unlessTalking(action: () => void): void {
+    if (!this.inDialogue) action();
+  }
+
+  /** A line typed in the chat box: a local command, or something said out loud over the ship. */
+  private chatSend(text: string): void {
+    if (text.startsWith('/')) {
+      const command = text.slice(1).split(/\s+/)[0]?.toLowerCase();
+      if (command === 'help') this.hud.setHelpVisible(true);
+      else this.hud.chat.addMessage({ from: '', kind: 'system', text: `Unknown command "${text}". Try /help.` });
+      return;
+    }
+    const player = this.sim.getShip(PLAYER_ID)!;
+    this.hud.chat.addMessage({ from: player.spec.name, text, kind: 'player' });
+    this.labels.say(PLAYER_ID, text, this.accents.get(PLAYER_ID) ?? NPC_ACCENT);
   }
 
   private warpMessage(player: ShipEntity): string | null {
@@ -424,6 +522,7 @@ export class FlightSession {
           event.shipId === PLAYER_ID
             ? { text: 'Ship destroyed. Respawning...', until: now + COMBAT_TUNING.playerRespawnDelay }
             : { text: `${ship?.spec.name ?? 'Enemy'} destroyed`, until: now + 3 };
+        this.hud.chat.addMessage({ from: '', kind: 'system', text: event.shipId === PLAYER_ID ? 'Your ship was destroyed.' : `${ship?.spec.name ?? 'Enemy'} destroyed.` });
         return;
       }
       case 'ship-respawned': {
@@ -499,10 +598,27 @@ export class FlightSession {
       case 'beacon-reached':
         this.scene.flash(event.beacon.x, event.beacon.z, event.beacon.radius * 0.6);
         this.scene.shockwave(event.beacon.x, event.beacon.z, event.beacon.radius * 1.6, event.beacon.colour);
-        if (event.shipId === PLAYER_ID) this.message = { text: `Reached ${event.beacon.label}`, until: now + 3 };
+        if (event.shipId === PLAYER_ID) {
+          this.message = { text: `Reached ${event.beacon.label}`, until: now + 3 };
+          this.hud.chat.addMessage({ from: '', kind: 'system', text: `Reached ${event.beacon.label}.` });
+        }
         return;
+      case 'ship-stance-changed': {
+        const ship = this.sim.getShip(event.shipId);
+        this.accents.set(event.shipId, event.stance === 'hostile' ? (this.hostileAccents.get(event.shipId) ?? NPC_ACCENT) : FRIENDLY_ACCENT);
+        if (ship && event.stance === 'hostile') {
+          this.scene.shockwave(ship.state.x, ship.state.z, ship.spec.radius * 2.5, NPC_ACCENT);
+          const text = event.reason === 'provoked' ? `${ship.spec.name} turns hostile!` : `${ship.spec.name} opens fire!`;
+          this.message = { text, until: now + 2.5 };
+          this.hud.chat.addMessage({ from: '', kind: 'system', text });
+        }
+        return;
+      }
       case 'hazard-entered':
-        if (event.shipId === PLAYER_ID) this.message = { text: `Entering ${event.hazard.label}`, until: now + 1.8 };
+        if (event.shipId === PLAYER_ID) {
+          this.message = { text: `Entering ${event.hazard.label}`, until: now + 1.8 };
+          this.hud.chat.addMessage({ from: '', kind: 'system', text: `Entering ${event.hazard.label}: ${event.hazard.damagePerSecond} damage a second.` });
+        }
         return;
       case 'hazard-left':
         return;
@@ -527,10 +643,12 @@ export class FlightSession {
   private tooltipFor(pick: Pick, pointerPx: { x: number; y: number } | null): Parameters<FlightHud['setTooltip']>[0] {
     if (!pick || !pointerPx) return null;
     if (pick.kind === 'ship') {
-      const { spec, vitals } = pick.ship;
+      const { spec, vitals, stance } = pick.ship;
+      const stanceLine = spec.id === PLAYER_ID ? [] : [stance === 'friendly' ? (spec.provokable === false ? 'friendly' : 'friendly · will turn on you if attacked') : 'hostile'];
+      const vitalsLines = spec.invulnerable ? ['cannot be harmed'] : [`shield ${Math.ceil(vitals.shield)} / ${vitals.maxShield}`, `hull ${Math.ceil(vitals.hull)} / ${vitals.maxHull}`];
       return {
         title: spec.name,
-        lines: [spec.hullName, `shield ${Math.ceil(vitals.shield)} / ${vitals.maxShield}`, `hull ${Math.ceil(vitals.hull)} / ${vitals.maxHull}`],
+        lines: [spec.hullName, ...stanceLine, ...vitalsLines],
         x: pointerPx.x,
         y: pointerPx.y,
         accent: this.accents.get(spec.id) ?? NPC_ACCENT,

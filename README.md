@@ -128,9 +128,21 @@ fly next.
       "description": "Checkpoint one", "colour": "#6fd3ff", "radius": 14 },          // fires beacon-reached
     { "type": "gas-cloud", "id": "west-cloud", "x": 1250, "y": 2000, "radius": 140,
       "damagePerSecond": 12, "label": "Toxic gas", "colour": "#9bff3d" }             // hurts anything inside
+  ],
+  "markers": [                                                                 // minimap annotations only
+    { "type": "icon",  "x": 2424, "y": 2424, "icon": "mine", "label": "Iron ring" },  // onMinimap defaults true
+    { "type": "label", "x": 2000, "y": 2000, "text": "IRON RING ARENA", "colour": "#9fb3cc", "size": 12 } // expanded map only unless onMinimap
   ]
 }
 ```
+
+Markers are pure presentation: the simulation never reads them. Icons are
+old-school minimap pins, one of `home`, `mine`, `crystal`, `skull`, `shop`,
+`repair`, `quest`, `flag`, `star`, `gate`, `fuel`, `anchor` (unknown names
+fail to parse); `colour` overrides the icon's own palette and `label` is
+shown next to it on the expanded map. Labels name regions; by default they
+only appear on the expanded map, set `"onMinimap": true` to show one on the
+small map too.
 
 Rock kinds: `stone`, `iron`, `ice`, `crystal`, `giant`. Resources: `ore`,
 `iron`, `ice`, `crystal`. Depths are negative (below the ship plane); deeper
@@ -191,6 +203,51 @@ What the client sees is also server-shaped. `RockField.inView(x, z, r)` and
 so rocks appear as you approach and vanish behind you exactly as they would
 when streamed from a server by interest radius. The minimap draws the full
 static list, which a client can download once with the map.
+
+### Stances: friendly until provoked
+
+Every ship has a `stance`, `friendly` or `hostile` (`ShipSpec.stance`,
+hostile by default). A friendly ship is nobody's enemy: its AI holds fire
+(a `TurretAi` still turns to watch you), the HUD lists it as a friendly
+ship rather than an enemy, the minimap shows it green, and seeker missiles
+ignore it. It turns hostile when a weapon hit from another team lands on it
+(`reason: "provoked"`), when its controller's `wantsToAttack` says so
+(`reason: "ambush"`; `TurretAi` takes `ambushRange` and `ambushDelay`), or
+when a script calls `WorldSim.setShipStance` (`reason: "set"`). Each change
+raises `ship-stance-changed`; the stance resets to the spec's value on
+respawn. The hangar's raider starts friendly and jumps you if you stay
+within 70 units of it for two seconds.
+
+### Talking to ships, chat and the HUD layout
+
+NPCs spawned with `dialogue: { range, lines }` can be talked to: within
+`range` units of the player's centre (30 by default, `DEFAULT_INTERACT_RANGE`)
+a "Space · Talk to <name>" prompt appears above the weapon bar, and Space
+opens a dialogue panel inside the chat box, styled as a holographic comms
+screen: the speaker's portrait in a glowing frame on the left
+(`public/assets/portraits/*.png`, pixel art rendered by
+`tools/generate-portraits.py`), their name as a cyan header, and the line
+typing itself out (22 ms a character, at most 1.4 s a line) with a blinking
+"Space ▸ continue" cue. Space or a click completes a line that is still
+typing, then advances; holding Space skips a line every 0.14 s; Esc closes.
+Dialogue is modal: the ship is held (`WorldSim.setHeld`, velocity zeroed,
+input ignored, no firing) and every other control, from the map to the
+chat box, is ignored until the conversation ends. Every line is also
+written to the chat log. The hangar
+spawns a **Navigator** in the top-right corner of the Proving Ground (team
+`guild`, friendly, `provokable: false` so shooting him never turns him
+hostile, and `invulnerable: true` so nothing damages him: he has no shield,
+no bars over his name, and shots, rams and gas pass without effect) with a
+five-line briefing.
+
+The flight HUD is now laid out like a classic MMO: minimap, status lines
+(position, heading, speed, kills, cargo, nearest enemy, comet) and the
+settings buttons in a column top-right; a chat panel bottom-left (Enter
+focuses the input, Enter sends, `/help` opens the controls panel, and
+anything you say floats above your ship for five seconds); weapons and
+prompts bottom-centre. The old top-left readout and bottom-left control
+hints are gone; the controls live behind the Controls button and `/help`.
+Flight keys are ignored while the chat input has focus.
 
 ### Toward online play
 
@@ -264,10 +321,16 @@ static list, which a client can download once with the map.
   shares the same rig and framing for a fair comparison. North (map +y) is
   always up the screen.
 - **Minimap.** A square minimap in the bottom-right corner: the whole map
-  fits the square, north up, with a faint four-by-four grid, N/E/S/W in the
-  margins, rocks as dots, planets, gas clouds as translucent discs, beacons
-  as diamonds, enemies in red, the comet with its heading, and your ship as
-  a white dot with a heading tick. Clicking inside the square warps there.
+  fills it, north up, N/E/S/W sitting on the frame, a faint grid, rocks as
+  dots, planets, gas clouds as translucent discs, beacons as diamonds,
+  map-authored icons, enemies in red, the comet with its heading, and your
+  ship as a white dot with a heading tick. Press M or the corner button to
+  expand it into a large map with a ten-by-ten grid, coordinate ticks, every
+  label and icon name, and a live readout of the map coordinate under the
+  cursor (handy when writing markers). Clicking either map warps there; Esc
+  or M closes the big one.
+- **Zoom.** The wheel zooms between 55 and 320 units of camera distance,
+  from a close fighter view out to roughly a 600-unit-wide field.
 - **Map.** 10,000 x 10,000 units, bounded by a line square. Depth order is
   physical: rocks on the plane, then planets (2,000 to 2,800 down), then four
   starfields (3,200 to 5,200 down: a dense faint field, clustered clumps, a

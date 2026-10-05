@@ -2,6 +2,9 @@ import { clear, el } from '../ui/dom';
 import type { CameraMode } from '../scene/cameraRig';
 import { RESOURCES, RESOURCE_KINDS, inventoryValue, type Inventory } from '../game/loot';
 import { fromMapCoords, headingBearing, toMapCoords, worldVectorToMap } from '../game/mapCoords';
+import type { ResolvedMarker } from '../game/map';
+import { drawMapIcon } from './mapIcons';
+import { ChatPanel } from './chat';
 import { PIXEL_LEVELS, type PixelScope } from '../scene/pixelate';
 import type { WeaponGroup } from '../game/weapons';
 
@@ -33,6 +36,8 @@ export interface HudInfo {
   readonly deaths: number;
   /** Living hostile ships, nearest first. */
   readonly enemies: ReadonlyArray<{ readonly x: number; readonly z: number }>;
+  /** Living other-team ships that are friendly right now, nearest first. */
+  readonly neutrals: ReadonlyArray<{ readonly x: number; readonly z: number }>;
   readonly message: string | null;
   readonly weapons: readonly WeaponGroupReadout[];
   readonly cargo: Inventory;
@@ -40,6 +45,9 @@ export interface HudInfo {
   readonly pixelScope: PixelScope;
   readonly beacons: ReadonlyArray<{ readonly x: number; readonly z: number; readonly colour: string }>;
   readonly hazards: ReadonlyArray<{ readonly x: number; readonly z: number; readonly radius: number; readonly colour: string }>;
+  /** Map-authored labels and icons. */
+  readonly markers: readonly ResolvedMarker[];
+  readonly mapName: string;
   /** The shooting star while it is in the sector. */
   readonly comet: { readonly x: number; readonly z: number; readonly vx: number; readonly vz: number; readonly hp: number; readonly maxHp: number } | null;
 }
@@ -51,20 +59,41 @@ export interface HudActions {
   onPixelScope(scope: PixelScope): void;
   /** Clicking the minimap warps the ship to that world position. */
   onTeleport(x: number, z: number): void;
+  /** A line typed into the chat box. */
+  onChatSend(text: string): void;
 }
 
+const CONTROLS: ReadonlyArray<readonly [string, string]> = [
+  ['W A S D', 'thrust and strafe · Shift boosts'],
+  ['Mouse', 'aims · left button fires the selected weapon group'],
+  ['1 / 2 / 3', 'switch weapon group'],
+  ['Space', 'talk to a nearby ship · continue dialogue · hold to skip'],
+  ['Enter', 'chat · /help for this list'],
+  ['M', 'expand the map · click a map to warp there'],
+  ['Wheel', 'zoom · Q / E tilt camera · C camera mode'],
+  ['P / O', 'pixelation level · pixelation scope'],
+  ['Esc', 'close dialogue, help or map · then back to the hangar'],
+];
+
 const MINIMAP_SIZE = 220;
-/** Margin band around the map square where the compass letters sit. */
-const MINIMAP_MARGIN = 16;
-/** Side of the map square; the whole map always fits, north up. */
-const MAP_SIDE = MINIMAP_SIZE - MINIMAP_MARGIN * 2;
-const MINIMAP_GRID = 4;
+/** Inset of the map square from the canvas edge; the compass letters sit on the frame line itself. */
+const MINIMAP_INSET = 7;
 
 /** DOM overlay for flight: readouts, camera toggle, controls hint and a minimap. */
 export class FlightHud {
-  private readonly readout: HTMLElement;
+  private readonly status: HTMLElement;
+  private readonly prompt: HTMLElement;
+  private readonly help: HTMLElement;
+  readonly chat: ChatPanel;
   private readonly cameraButton: HTMLButtonElement;
   private readonly minimap: HTMLCanvasElement;
+  private readonly bigMap: HTMLElement;
+  private readonly bigMapCanvas: HTMLCanvasElement;
+  private readonly bigMapTitle: HTMLElement;
+  private readonly bigMapCursor: HTMLElement;
+  private bigMapSize = 0;
+  private bigMapCursorText = '';
+  private lastInfo: HudInfo | null = null;
   private readonly message: HTMLElement;
   private readonly hazardVignette: HTMLElement;
   private readonly hazardWarning: HTMLElement;
@@ -79,34 +108,59 @@ export class FlightHud {
   private halfExtent = 0;
 
   constructor(root: HTMLElement, actions: HudActions) {
-    this.readout = el('div', { className: 'hud-readout' });
+    this.status = el('div', { className: 'hud-status' });
+    this.prompt = el('div', { className: 'hud hud-prompt' });
+    this.prompt.style.display = 'none';
+    this.help = el('div', { className: 'hud hud-help' }, [
+      el('h3', { text: 'Controls' }),
+      el('dl', {}, CONTROLS.flatMap(([key, what]) => [el('dt', { text: key }), el('dd', { text: what })])),
+      el('p', { className: 'muted', text: 'Esc or the Controls button closes this.' }),
+    ]);
+    this.help.style.display = 'none';
+    this.chat = new ChatPanel({ onSend: (text) => actions.onChatSend(text) });
     this.cameraButton = el('button', { type: 'button', text: 'Camera: perspective' });
     this.cameraButton.addEventListener('click', actions.onToggleCamera);
-    const exit = el('button', { type: 'button', text: 'Back to hangar (Esc)', className: 'primary' });
+    const helpButton = el('button', { type: 'button', text: 'Controls' });
+    helpButton.addEventListener('click', () => this.setHelpVisible(!this.helpVisible));
+    const exit = el('button', { type: 'button', text: 'Hangar (Esc)', className: 'primary span-2' });
     exit.addEventListener('click', actions.onExit);
     this.pixelSelect = el('select', { title: 'Pixelation level (P)' });
     PIXEL_LEVELS.forEach((level, index) => this.pixelSelect.append(el('option', { value: String(index), text: `Pixels: ${level.label}` })));
+    this.pixelSelect.title = 'Pixelation level (P)';
     this.pixelSelect.addEventListener('change', () => actions.onPixelLevel(Number(this.pixelSelect.value)));
     this.scopeSelect = el('select', { title: 'What gets pixelated (O)' });
     this.scopeSelect.append(el('option', { value: '3d', text: '3D only' }), el('option', { value: 'all', text: 'Everything' }));
     this.scopeSelect.addEventListener('change', () => actions.onPixelScope(this.scopeSelect.value as PixelScope));
-    this.minimap = el('canvas', { className: 'hud-minimap', title: 'Click to warp there' });
-    this.minimap.width = MINIMAP_SIZE;
-    this.minimap.height = MINIMAP_SIZE;
-    this.minimap.addEventListener('pointerdown', (event) => {
+    this.minimap = el('canvas', { className: 'hud-minimap', title: 'Click to warp there · M expands' });
+    sizeCanvas(this.minimap, MINIMAP_SIZE);
+    const expand = el('button', { type: 'button', className: 'hud-map-expand', text: '⤢', title: 'Expand map (M)' });
+    expand.addEventListener('click', () => this.setMapExpanded(!this.mapExpanded));
+    this.bigMapCanvas = el('canvas', { title: 'Click to warp there' });
+    this.bigMapTitle = el('span');
+    this.bigMapCursor = el('span', { className: 'muted' });
+    this.bigMap = el('div', { className: 'hud hud-bigmap' }, [
+      el('div', { className: 'bigmap-title' }, [this.bigMapTitle, el('span', { className: 'muted', text: 'click to warp · M or Esc closes' })]),
+      this.bigMapCanvas,
+      el('div', { className: 'bigmap-caption' }, [el('span', { className: 'muted', text: 'map coordinates, (0, 0) bottom-left' }), this.bigMapCursor]),
+    ]);
+    this.bigMap.style.display = 'none';
+    // Clicking either map warps to that map coordinate; the frame is ignored.
+    const warpFromClick = (canvas: HTMLCanvasElement, size: number) => (event: PointerEvent): void => {
       if (event.button !== 0 || this.halfExtent <= 0) return;
-      const rect = this.minimap.getBoundingClientRect();
-      const mx = ((event.clientX - rect.left) / rect.width) * MINIMAP_SIZE;
-      const mz = ((event.clientY - rect.top) / rect.height) * MINIMAP_SIZE;
-      // The map square maps straight onto map coordinates (x grows right, y
-      // grows up, (0, 0) bottom-left). Clicks in the margin are ignored.
-      const u = (mx - MINIMAP_MARGIN) / MAP_SIDE;
-      const v = (mz - MINIMAP_MARGIN) / MAP_SIDE;
-      if (u < 0 || u > 1 || v < 0 || v > 1) return;
-      const mapX = u * 2 * this.halfExtent;
-      const mapY = (1 - v) * 2 * this.halfExtent;
-      const world = fromMapCoords(mapX, mapY, this.halfExtent);
+      const point = this.mapPointAt(canvas, size, event);
+      if (!point) return;
+      const world = fromMapCoords(point.x, point.y, this.halfExtent);
       actions.onTeleport(world.x, world.z);
+    };
+    this.minimap.addEventListener('pointerdown', warpFromClick(this.minimap, MINIMAP_SIZE));
+    this.bigMapCanvas.addEventListener('pointerdown', (event) => warpFromClick(this.bigMapCanvas, this.bigMapSize)(event));
+    this.bigMapCanvas.addEventListener('pointermove', (event) => {
+      const point = this.mapPointAt(this.bigMapCanvas, this.bigMapSize, event);
+      this.bigMapCursorText = point ? `cursor ${point.x.toFixed(0)}, ${point.y.toFixed(0)}` : '';
+      this.bigMapCursor.textContent = this.bigMapCursorText;
+    });
+    this.bigMapCanvas.addEventListener('pointerleave', () => {
+      this.bigMapCursor.textContent = '';
     });
     this.message = el('div', { className: 'hud hud-message' });
     this.message.style.display = 'none';
@@ -128,39 +182,87 @@ export class FlightHud {
       this.tooltip,
       this.cometArrow,
       this.weaponBar,
-      el('div', { className: 'hud hud-top-left' }, [this.readout]),
-      el('div', { className: 'hud hud-top-right' }, [this.pixelSelect, this.scopeSelect, this.cameraButton, exit]),
-      el('div', { className: 'hud hud-bottom-left muted' }, [
-        el('div', { text: 'W A S D thrust and strafe · mouse aims · click fires the selected weapon group · 1 / 2 / 3 switch group' }),
-        el('div', { text: 'Shift boost · wheel zoom · Q / E tilt camera · C camera mode · P pixelation · O pixel scope · click minimap to warp · Esc back' }),
+      this.prompt,
+      el('div', { className: 'hud hud-right-column' }, [
+        el('div', { className: 'minimap-wrap' }, [this.minimap, expand]),
+        this.status,
+        el('div', { className: 'hud-settings' }, [this.cameraButton, helpButton, this.pixelSelect, this.scopeSelect, exit]),
       ]),
-      el('div', { className: 'hud hud-bottom-right' }, [this.minimap]),
+      this.chat.root,
+      this.help,
+      this.bigMap,
     );
+  }
+
+  get helpVisible(): boolean {
+    return this.help.style.display !== 'none';
+  }
+
+  setHelpVisible(visible: boolean): void {
+    this.help.style.display = visible ? '' : 'none';
+  }
+
+  /** A key hint above the weapon bar, e.g. "Space · Talk to Navigator"; null hides it. */
+  setInteractPrompt(prompt: { readonly key: string; readonly text: string } | null): void {
+    if (!prompt) {
+      this.prompt.style.display = 'none';
+      return;
+    }
+    this.prompt.style.display = '';
+    this.prompt.replaceChildren(el('kbd', { text: prompt.key }), el('span', { text: prompt.text }));
+  }
+
+  get mapExpanded(): boolean {
+    return this.bigMap.style.display !== 'none';
+  }
+
+  /** Show or hide the large map overlay; it is sized to the viewport when opened. */
+  setMapExpanded(expanded: boolean): void {
+    if (expanded === this.mapExpanded) return;
+    if (expanded) {
+      this.bigMapSize = Math.max(320, Math.floor(Math.min(window.innerWidth - 80, window.innerHeight - 140)));
+      sizeCanvas(this.bigMapCanvas, this.bigMapSize);
+      this.bigMap.style.display = '';
+      if (this.lastInfo) this.drawMap(this.bigMapCanvas, this.bigMapSize, this.lastInfo, true);
+    } else {
+      this.bigMap.style.display = 'none';
+    }
+  }
+
+  /** The map coordinate under a pointer event on one of the map canvases, or null when on the frame. */
+  private mapPointAt(canvas: HTMLCanvasElement, size: number, event: PointerEvent): { x: number; y: number } | null {
+    const rect = canvas.getBoundingClientRect();
+    const px = ((event.clientX - rect.left) / rect.width) * size;
+    const py = ((event.clientY - rect.top) / rect.height) * size;
+    const side = size - MINIMAP_INSET * 2;
+    const u = (px - MINIMAP_INSET) / side;
+    const v = (py - MINIMAP_INSET) / side;
+    if (u < 0 || u > 1 || v < 0 || v > 1) return null;
+    return { x: u * 2 * this.halfExtent, y: (1 - v) * 2 * this.halfExtent };
   }
 
   update(info: HudInfo): void {
     const here = toMapCoords(info.x, info.z, info.halfExtent);
-    this.readout.replaceChildren(
-      el('div', { text: `speed ${info.speed.toFixed(0)}` }),
-      el('div', { text: `x ${here.x.toFixed(0)}  y ${here.y.toFixed(0)}  hdg ${headingBearing(info.heading).toFixed(0).padStart(3, '0')}°` }),
-      el('div', { className: 'muted', text: `${info.mode} · tilt ${info.tiltDegrees.toFixed(0)}° · zoom ${info.zoomDistance.toFixed(0)}` }),
-      el('div', { text: `rocks broken ${info.rocksBroken} · kills ${info.kills} · deaths ${info.deaths}` }),
+    const nearest = (ships: ReadonlyArray<{ readonly x: number; readonly z: number }>): number | null =>
+      ships[0] ? Math.hypot(ships[0].x - info.x, ships[0].z - info.z) : null;
+    const enemy = nearest(info.enemies);
+    const neutral = nearest(info.neutrals);
+    this.status.replaceChildren(
+      el('div', { className: 'status-main', text: `x ${here.x.toFixed(0)}  y ${here.y.toFixed(0)}  ·  hdg ${headingBearing(info.heading).toFixed(0).padStart(3, '0')}°  ·  ${info.speed.toFixed(0)} u/s` }),
+      el('div', { className: 'muted', text: `${info.mode} · tilt ${info.tiltDegrees.toFixed(0)}° · zoom ${info.zoomDistance.toFixed(0)} · kills ${info.kills} · deaths ${info.deaths} · rocks ${info.rocksBroken}` }),
       el('div', { className: 'hud-cargo' }, [
-        el('span', { text: 'cargo ' }),
         ...RESOURCE_KINDS.map((kind) =>
           el('span', { className: 'cargo-item', style: { color: RESOURCES[kind].colour } }, [`${RESOURCES[kind].label.toLowerCase()} ${info.cargo[kind]} `]),
         ),
-        el('span', { className: 'muted', text: ` · worth ${inventoryValue(info.cargo)}` }),
+        el('span', { className: 'muted', text: `· worth ${inventoryValue(info.cargo)}` }),
       ]),
       el('div', {
         className: 'muted',
-        text: info.enemies[0] ? `enemy ${Math.hypot(info.enemies[0].x - info.x, info.enemies[0].z - info.z).toFixed(0)} away` : 'no enemies up',
+        text: enemy !== null ? `enemy ${enemy.toFixed(0)} away` : neutral !== null ? `no hostiles · friendly ship ${neutral.toFixed(0)} away` : 'no enemies up',
       }),
       el('div', {
         className: 'hud-comet',
-        text: info.comet
-          ? `comet ${Math.hypot(info.comet.x - info.x, info.comet.z - info.z).toFixed(0)} away · ${Math.ceil(info.comet.hp)} / ${info.comet.maxHp} hp`
-          : 'no comet in the sector',
+        text: info.comet ? `comet ${Math.hypot(info.comet.x - info.x, info.comet.z - info.z).toFixed(0)} away · ${Math.ceil(info.comet.hp)} / ${info.comet.maxHp} hp` : 'no comet in the sector',
       }),
     );
     this.message.textContent = info.message ?? '';
@@ -169,7 +271,13 @@ export class FlightHud {
     this.cameraButton.textContent = `Camera: ${info.mode}`;
     if (this.pixelSelect.value !== String(info.pixelLevel)) this.pixelSelect.value = String(info.pixelLevel);
     if (this.scopeSelect.value !== info.pixelScope) this.scopeSelect.value = info.pixelScope;
-    this.drawMinimap(info);
+    this.lastInfo = info;
+    this.halfExtent = info.halfExtent;
+    this.drawMap(this.minimap, MINIMAP_SIZE, info, false);
+    if (this.mapExpanded) {
+      this.bigMapTitle.textContent = info.mapName;
+      this.drawMap(this.bigMapCanvas, this.bigMapSize, info, true);
+    }
   }
 
   /**
@@ -269,16 +377,23 @@ export class FlightHud {
     }
   }
 
-  private drawMinimap(info: HudInfo): void {
-    this.halfExtent = info.halfExtent;
-    const context = this.minimap.getContext('2d');
+  /**
+   * Draw the map into a square canvas of `size` CSS pixels. The small
+   * minimap and the expanded map share this; `expanded` turns on the finer
+   * grid, coordinate ticks, label text and icon names.
+   */
+  private drawMap(canvas: HTMLCanvasElement, size: number, info: HudInfo, expanded: boolean): void {
+    const context = canvas.getContext('2d');
     if (!context) return;
-    const size = MINIMAP_SIZE;
-    const origin = MINIMAP_MARGIN;
-    const scale = MAP_SIDE / (2 * info.halfExtent);
+    const dpr = canvas.width / size;
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const inset = MINIMAP_INSET;
+    const side = size - inset * 2;
+    const scale = side / (2 * info.halfExtent);
+    const k = expanded ? Math.max(1.4, size / MINIMAP_SIZE / 1.6) : 1; // glyph scale
     const toMap = (x: number, z: number): [number, number] => {
       const point = toMapCoords(x, z, info.halfExtent);
-      return [origin + point.x * scale, origin + MAP_SIDE - point.y * scale];
+      return [inset + point.x * scale, inset + side - point.y * scale];
     };
     const dir = (worldX: number, worldZ: number): readonly [number, number] => {
       const [mx, my] = worldVectorToMap(worldX, worldZ);
@@ -286,108 +401,122 @@ export class FlightHud {
     };
 
     context.clearRect(0, 0, size, size);
-    // Panel.
-    context.fillStyle = 'rgba(10, 12, 20, 0.78)';
+    context.fillStyle = 'rgba(10, 12, 20, 0.8)';
     roundedRect(context, 0.5, 0.5, size - 1, size - 1, 6);
     context.fill();
-    context.strokeStyle = 'rgba(140, 150, 170, 0.45)';
-    context.lineWidth = 1;
-    context.stroke();
-    // Map square with a faint grid.
-    context.fillStyle = 'rgba(18, 24, 38, 0.6)';
-    context.fillRect(origin, origin, MAP_SIDE, MAP_SIDE);
+    // Map square with a grid; the expanded map gets a finer one with coordinate ticks.
+    context.fillStyle = 'rgba(18, 24, 38, 0.65)';
+    context.fillRect(inset, inset, side, side);
+    const cells = expanded ? 10 : 4;
     context.strokeStyle = 'rgba(120, 140, 170, 0.14)';
-    for (let i = 1; i < MINIMAP_GRID; i++) {
-      const at = origin + (MAP_SIDE * i) / MINIMAP_GRID + 0.5;
+    context.lineWidth = 1;
+    for (let i = 1; i < cells; i++) {
+      const at = inset + (side * i) / cells + 0.5;
       context.beginPath();
-      context.moveTo(at, origin);
-      context.lineTo(at, origin + MAP_SIDE);
-      context.moveTo(origin, at);
-      context.lineTo(origin + MAP_SIDE, at);
+      context.moveTo(at, inset);
+      context.lineTo(at, inset + side);
+      context.moveTo(inset, at);
+      context.lineTo(inset + side, at);
       context.stroke();
     }
-    context.strokeStyle = 'rgba(140, 150, 170, 0.7)';
-    context.strokeRect(origin + 0.5, origin + 0.5, MAP_SIDE - 1, MAP_SIDE - 1);
-    // Compass letters in the margins.
-    context.font = 'bold 11px system-ui, sans-serif';
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    const mid = origin + MAP_SIDE / 2;
-    const letters: ReadonlyArray<readonly [string, number, number]> = [
-      ['N', mid, origin / 2],
-      ['S', mid, size - origin / 2],
-      ['W', origin / 2, mid],
-      ['E', size - origin / 2, mid],
-    ];
-    for (const [letter, lx, ly] of letters) {
-      context.fillStyle = letter === 'N' ? '#6fd3ff' : 'rgba(200, 208, 220, 0.75)';
-      context.fillText(letter, lx, ly);
+    if (expanded) {
+      context.fillStyle = 'rgba(160, 175, 200, 0.55)';
+      context.font = '10px system-ui, sans-serif';
+      context.textBaseline = 'bottom';
+      for (let i = 1; i < cells; i++) {
+        const value = ((2 * info.halfExtent * i) / cells).toFixed(0);
+        const at = inset + (side * i) / cells;
+        // Kept clear of the S and W compass tabs on the frame.
+        context.textAlign = 'center';
+        context.fillText(value, at, inset + side - 9);
+        context.textAlign = 'left';
+        context.fillText(value, inset + 12, inset + side - (side * i) / cells + 4);
+      }
     }
+    context.strokeStyle = 'rgba(150, 160, 180, 0.8)';
+    context.strokeRect(inset + 0.5, inset + 0.5, side - 1, side - 1);
 
     // Everything on the map is clipped to the square.
     context.save();
     context.beginPath();
-    context.rect(origin, origin, MAP_SIDE, MAP_SIDE);
+    context.rect(inset, inset, side, side);
     context.clip();
-    context.fillStyle = 'rgba(160, 150, 140, 0.6)';
-    for (const rock of info.rocks) {
-      const [mx, mz] = toMap(rock.x, rock.z);
-      context.fillRect(mx - 0.5, mz - 0.5, 1.5, 1.5);
-    }
-    context.fillStyle = 'rgba(200, 180, 140, 0.8)';
-    for (const [px, pz] of info.planets) {
-      const [mx, mz] = toMap(px, pz);
-      context.beginPath();
-      context.arc(mx, mz, 2.2, 0, Math.PI * 2);
-      context.fill();
-    }
+
     for (const hazard of info.hazards) {
       const [hx, hz] = toMap(hazard.x, hazard.z);
-      const pr = Math.max(3, (hazard.radius / (2 * info.halfExtent)) * MAP_SIDE);
+      const pr = Math.max(3, hazard.radius * scale);
       context.fillStyle = hazard.colour;
-      context.globalAlpha = 0.3;
+      context.globalAlpha = 0.28;
       context.beginPath();
       context.arc(hx, hz, pr, 0, Math.PI * 2);
       context.fill();
-      context.globalAlpha = 0.8;
+      context.globalAlpha = 0.7;
       context.lineWidth = 1;
       context.strokeStyle = hazard.colour;
       context.stroke();
       context.globalAlpha = 1;
     }
+    context.fillStyle = 'rgba(160, 150, 140, 0.65)';
+    const dot = 1.5 * k;
+    for (const rock of info.rocks) {
+      const [mx, mz] = toMap(rock.x, rock.z);
+      context.fillRect(mx - dot / 2, mz - dot / 2, dot, dot);
+    }
+    context.fillStyle = 'rgba(200, 180, 140, 0.8)';
+    for (const [px, pz] of info.planets) {
+      const [mx, mz] = toMap(px, pz);
+      context.beginPath();
+      context.arc(mx, mz, 2.2 * k, 0, Math.PI * 2);
+      context.fill();
+    }
     for (const beacon of info.beacons) {
       const [bx, bz] = toMap(beacon.x, beacon.z);
+      const d = 3.5 * k;
       context.fillStyle = beacon.colour;
       context.beginPath();
-      context.moveTo(bx, bz - 3.5);
-      context.lineTo(bx + 3.5, bz);
-      context.lineTo(bx, bz + 3.5);
-      context.lineTo(bx - 3.5, bz);
+      context.moveTo(bx, bz - d);
+      context.lineTo(bx + d, bz);
+      context.lineTo(bx, bz + d);
+      context.lineTo(bx - d, bz);
       context.closePath();
+      context.fill();
+    }
+    // Map-authored icons, then enemies and the comet on top of them.
+    const iconSize = expanded ? 24 : 13;
+    for (const marker of info.markers) {
+      if (marker.type !== 'icon' || (!expanded && !marker.onMinimap)) continue;
+      const [ix, iz] = toMap(marker.x, marker.z);
+      drawMapIcon(context, marker.icon, ix, iz, iconSize, marker.colour);
+    }
+    context.fillStyle = '#7fe3a0';
+    for (const neutral of info.neutrals) {
+      const [nx, nz] = toMap(neutral.x, neutral.z);
+      context.beginPath();
+      context.arc(nx, nz, 3 * k, 0, Math.PI * 2);
       context.fill();
     }
     for (const enemy of info.enemies) {
       const [ex, ez] = toMap(enemy.x, enemy.z);
       context.fillStyle = '#ff5c5c';
       context.beginPath();
-      context.arc(ex, ez, 3, 0, Math.PI * 2);
+      context.arc(ex, ez, 3 * k, 0, Math.PI * 2);
       context.fill();
       context.strokeStyle = 'rgba(255, 92, 92, 0.45)';
       context.lineWidth = 1;
       context.beginPath();
-      context.arc(ex, ez, 5.5, 0, Math.PI * 2);
+      context.arc(ex, ez, 5.5 * k, 0, Math.PI * 2);
       context.stroke();
     }
     if (info.comet) {
       const [cx, cz] = toMap(info.comet.x, info.comet.z);
       const speed = Math.hypot(info.comet.vx, info.comet.vz) || 1;
-      const pulse = 3 + Math.sin(performance.now() / 180) * 1.2;
+      const pulse = (3 + Math.sin(performance.now() / 180) * 1.2) * k;
       const [tx, tz] = dir(info.comet.vx / speed, info.comet.vz / speed);
       context.strokeStyle = 'rgba(159, 216, 255, 0.8)';
       context.lineWidth = 2;
       context.beginPath();
       context.moveTo(cx, cz);
-      context.lineTo(cx - tx * 12, cz - tz * 12);
+      context.lineTo(cx - tx * 12 * k, cz - tz * 12 * k);
       context.stroke();
       context.fillStyle = '#dff4ff';
       context.beginPath();
@@ -397,17 +526,75 @@ export class FlightHud {
     const [sx, sz] = toMap(info.x, info.z);
     const [hx, hz] = dir(Math.sin(info.heading), Math.cos(info.heading));
     context.strokeStyle = '#6fd3ff';
-    context.lineWidth = 1.5;
+    context.lineWidth = 1.5 * k;
     context.beginPath();
     context.moveTo(sx, sz);
-    context.lineTo(sx + hx * 8, sz + hz * 8);
+    context.lineTo(sx + hx * 8 * k, sz + hz * 8 * k);
     context.stroke();
     context.fillStyle = '#ffffff';
     context.beginPath();
-    context.arc(sx, sz, 2.5, 0, Math.PI * 2);
+    context.arc(sx, sz, 2.5 * k, 0, Math.PI * 2);
     context.fill();
+
+    // Text last: region labels, and icon names on the expanded map.
+    context.textBaseline = 'middle';
+    context.lineJoin = 'round';
+    for (const marker of info.markers) {
+      if (marker.type === 'label') {
+        if (!expanded && !marker.onMinimap) continue;
+        const [lx, lz] = toMap(marker.x, marker.z);
+        const px = expanded ? marker.size * 1.25 : marker.size;
+        context.font = `600 ${px}px system-ui, sans-serif`;
+        context.textAlign = 'center';
+        outlinedText(context, marker.text, lx, lz, marker.colour);
+      } else if (expanded && marker.label) {
+        const [ix, iz] = toMap(marker.x, marker.z);
+        context.font = '600 12px system-ui, sans-serif';
+        context.textAlign = 'left';
+        outlinedText(context, marker.label, ix + iconSize * 0.65, iz, '#e6ecf5');
+      }
+    }
     context.restore();
+
+    // Compass letters on the frame line itself, each on a small dark tab.
+    const mid = inset + side / 2;
+    const letters: ReadonlyArray<readonly [string, number, number]> = [
+      ['N', mid, inset],
+      ['S', mid, inset + side],
+      ['W', inset, mid],
+      ['E', inset + side, mid],
+    ];
+    context.font = 'bold 10px system-ui, sans-serif';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    for (const [letter, lx, ly] of letters) {
+      context.fillStyle = 'rgba(10, 12, 20, 0.95)';
+      roundedRect(context, lx - 7, ly - 6, 14, 12, 3);
+      context.fill();
+      context.strokeStyle = 'rgba(150, 160, 180, 0.6)';
+      context.lineWidth = 1;
+      context.stroke();
+      context.fillStyle = letter === 'N' ? '#6fd3ff' : 'rgba(210, 218, 230, 0.9)';
+      context.fillText(letter, lx, ly + 0.5);
+    }
   }
+}
+
+/** Size a canvas for crisp drawing at the device pixel ratio while laying out at `size` CSS pixels. */
+function sizeCanvas(canvas: HTMLCanvasElement, size: number): void {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  canvas.width = Math.round(size * dpr);
+  canvas.height = Math.round(size * dpr);
+  canvas.style.width = `${size}px`;
+  canvas.style.height = `${size}px`;
+}
+
+function outlinedText(context: CanvasRenderingContext2D, text: string, x: number, y: number, colour: string): void {
+  context.lineWidth = 3;
+  context.strokeStyle = 'rgba(6, 8, 14, 0.85)';
+  context.strokeText(text, x, y);
+  context.fillStyle = colour;
+  context.fillText(text, x, y);
 }
 
 function roundedRect(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number): void {

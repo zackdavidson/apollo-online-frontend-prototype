@@ -10,6 +10,18 @@ export interface InputCallbacks {
   /** P cycles the pixelation level, O toggles its scope. */
   onCyclePixelation(): void;
   onTogglePixelScope(): void;
+  /** M: expand or collapse the minimap. */
+  onToggleMap(): void;
+  /** Space: talk to a nearby NPC or advance dialogue; `repeat` is true while the key is held. */
+  onInteract(repeat: boolean): void;
+  /** Enter: put the cursor in the chat box. */
+  onChatFocus(): void;
+}
+
+/** True while the keyboard belongs to a text field (the chat box), so flight keys stay out of it. */
+function typing(): boolean {
+  const active = document.activeElement;
+  return active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement;
 }
 
 export interface InputSnapshot {
@@ -81,7 +93,21 @@ export class FlightInputTracker {
   }
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
+    if (typing()) {
+      if (event.code === 'Escape') (document.activeElement as HTMLElement).blur();
+      return;
+    }
+    if (event.code === 'Space') {
+      event.preventDefault();
+      this.callbacks.onInteract(event.repeat);
+      return;
+    }
     if (event.repeat) return;
+    if (event.code === 'Enter') {
+      event.preventDefault();
+      this.callbacks.onChatFocus();
+      return;
+    }
     if (event.code === 'Escape') {
       this.callbacks.onExit();
       return;
@@ -98,6 +124,10 @@ export class FlightInputTracker {
       this.callbacks.onTogglePixelScope();
       return;
     }
+    if (event.code === 'KeyM') {
+      this.callbacks.onToggleMap();
+      return;
+    }
     const digit = /^(?:Digit|Numpad)([1-3])$/.exec(event.code);
     if (digit) {
       this.callbacks.onSelectGroup(Number(digit[1]) - 1);
@@ -108,6 +138,7 @@ export class FlightInputTracker {
   };
 
   private readonly onKeyUp = (event: KeyboardEvent): void => {
+    if (typing()) return;
     this.keys.delete(event.code);
   };
 

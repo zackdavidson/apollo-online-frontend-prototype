@@ -4254,5 +4254,43 @@
       "label": "Ion haze",
       "colour": "#c76bff"
     }
+  ],
+  "markers": [
+    {
+      "type": "icon",
+      "x": 5000,
+      "y": 5000,
+      "icon": "home",
+      "label": "Spawn",
+      "colour": null,
+      "onMinimap": true
+    },
+    {
+      "type": "icon",
+      "x": 5620,
+      "y": 5460,
+      "icon": "mine",
+      "label": "Stone field",
+      "colour": null,
+      "onMinimap": true
+    },
+    {
+      "type": "icon",
+      "x": 4620,
+      "y": 5260,
+      "icon": "skull",
+      "label": "Spore drift",
+      "colour": null,
+      "onMinimap": true
+    },
+    {
+      "type": "label",
+      "x": 5000,
+      "y": 5700,
+      "text": "STARTER SECTOR",
+      "colour": "#9fb3cc",
+      "size": 12,
+      "onMinimap": false
+    }
   ]
 }

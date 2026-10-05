@@ -14,7 +14,7 @@ import { createRng, type Rng } from './random';
 import { RockField, dropsFor, type Rock } from './rocks';
 import { planWarp, sampleWarp } from './warp';
 import { WEAPON_GROUPS, type WeaponGroup } from './weapons';
-import type { Pick, ShipEntity, ShipId, ShipSpec } from './world';
+import type { Pick, ShipEntity, ShipId, ShipSpec, Stance } from './world';
 
 export interface WeaponGroupStatus {
   readonly id: WeaponGroup;
@@ -88,6 +88,8 @@ export class WorldSim implements ControllerView {
       state: { x: spec.spawn.x, z: spec.spawn.z, vx: 0, vz: 0, heading: spec.spawn.heading, throttle: 0 },
       vitals: createVitals(spec.maxShield, spec.maxHull),
       alive: true,
+      stance: spec.stance ?? 'hostile',
+      held: false,
       respawnAt: 0,
       input: IDLE_INPUT,
       activeGroup: 'guns',
@@ -211,13 +213,19 @@ export class WorldSim implements ControllerView {
     for (const rock of this.rocks.step(now)) events.push({ type: 'rock-respawned', rock });
 
     for (const ship of this.ships.values()) {
-      if (ship.spec.controller && ship.alive) ship.input = ship.spec.controller.decide(ship, this, dt, now);
+      if (!ship.spec.controller || !ship.alive) continue;
+      ship.input = ship.spec.controller.decide(ship, this, dt, now);
+      if (ship.stance === 'friendly' && ship.spec.controller.wantsToAttack?.(ship, this, dt, now)) this.changeStance(ship, 'hostile', null, 'ambush', events);
     }
 
     for (const ship of [...this.ships.values()]) {
       if (!ship.alive) {
         if (ship.spec.respawnDelay !== null && now >= ship.respawnAt) this.respawn(ship, events);
         continue;
+      }
+      if (ship.held) {
+        ship.input = IDLE_INPUT;
+        ship.state = { ...ship.state, vx: 0, vz: 0, throttle: 0 };
       }
       if (ship.warp) this.stepWarp(ship, now, events);
       else this.stepFlightAndCollisions(ship, dt, now, events);
@@ -390,7 +398,33 @@ export class WorldSim implements ControllerView {
   private hitShip(attacker: ShipEntity, victim: ShipEntity, baseDamage: number, x: number, z: number, now: number, events: GameEvent[]): void {
     const roll = rollDamage(baseDamage * (attacker.spec.damageScale ?? 1), this.damageRng);
     const result = this.hurt(victim, roll.amount, x, z, now, attacker, events);
-    events.push({ type: 'hit', attackerId: attacker.spec.id, target: { kind: 'ship', shipId: victim.spec.id }, x, z, amount: roll.amount, kind: roll.kind, absorbed: result.hullDamage <= 0 });
+    // An invulnerable target reports a zero hit, so no damage number appears.
+    const amount = victim.spec.invulnerable ? 0 : roll.amount;
+    events.push({ type: 'hit', attackerId: attacker.spec.id, target: { kind: 'ship', shipId: victim.spec.id }, x, z, amount, kind: roll.kind, absorbed: result.hullDamage <= 0 });
+    // Shooting a friendly ship provokes it (if it survived).
+    if (victim.alive && victim.stance === 'friendly' && victim.spec.provokable !== false && victim.spec.team !== attacker.spec.team) {
+      this.changeStance(victim, 'hostile', attacker.spec.id, 'provoked', events);
+    }
+  }
+
+  /** Freeze or release a ship: a held ship stops dead, ignores input and cannot fire until released. */
+  setHeld(id: ShipId, held: boolean): void {
+    const ship = this.ships.get(id);
+    if (!ship) return;
+    ship.held = held;
+    if (held) ship.state = { ...ship.state, vx: 0, vz: 0, throttle: 0 };
+  }
+
+  /** Force a stance, e.g. a server script making a trader turn on a pirate. Raises `ship-stance-changed` on the next step. */
+  setShipStance(id: ShipId, stance: Stance): void {
+    const ship = this.ships.get(id);
+    if (ship) this.changeStance(ship, stance, null, 'set', this.pending);
+  }
+
+  private changeStance(ship: ShipEntity, stance: Stance, byShipId: ShipId | null, reason: 'provoked' | 'ambush' | 'set', events: GameEvent[]): void {
+    if (ship.stance === stance) return;
+    ship.stance = stance;
+    events.push({ type: 'ship-stance-changed', shipId: ship.spec.id, stance, byShipId, reason });
   }
 
   private hitRock(attacker: ShipEntity, rock: Rock, baseDamage: number, miningBonus: number, x: number, z: number, now: number, events: GameEvent[]): void {
@@ -441,6 +475,8 @@ export class WorldSim implements ControllerView {
   }
 
   private hurt(ship: ShipEntity, amount: number, x: number, z: number, now: number, attacker: ShipEntity | null, events: GameEvent[]): ReturnType<typeof applyDamage> {
+    // Nothing touches an invulnerable ship: no damage, no event, no death.
+    if (ship.spec.invulnerable) return { vitals: ship.vitals, shieldAbsorbed: 0, hullDamage: 0, destroyed: false };
     const result = applyDamage(ship.vitals, amount, now);
     ship.vitals = result.vitals;
     events.push({ type: 'ship-damaged', shipId: ship.spec.id, x, z, shieldAbsorbed: result.shieldAbsorbed, hullDamage: result.hullDamage });
@@ -462,6 +498,7 @@ export class WorldSim implements ControllerView {
 
   private respawn(ship: ShipEntity, events: GameEvent[]): void {
     ship.alive = true;
+    ship.stance = ship.spec.stance ?? 'hostile';
     ship.state = { x: ship.spec.spawn.x, z: ship.spec.spawn.z, vx: 0, vz: 0, heading: ship.spec.spawn.heading, throttle: 0 };
     ship.vitals = createVitals(ship.spec.maxShield, ship.spec.maxHull);
     ship.beam = INITIAL_BEAM_STATE;
@@ -471,7 +508,8 @@ export class WorldSim implements ControllerView {
   private homingTargetsFor(ship: ShipEntity): HomingTarget[] {
     const targets: HomingTarget[] = [];
     for (const other of this.ships.values()) {
-      if (other !== ship && other.alive && other.spec.team !== ship.spec.team) targets.push(other.state);
+      // Missiles never lock onto friendly ships; aimed shots can still provoke them.
+      if (other !== ship && other.alive && other.spec.team !== ship.spec.team && other.stance !== 'friendly') targets.push(other.state);
     }
     if (this.comet.alive) targets.push(this.comet);
     for (const rock of this.rocks.overlapping(ship.state.x, ship.state.z, HOMING_ROCK_RANGE)) targets.push(rock);

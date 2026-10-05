@@ -10,6 +10,12 @@ export interface ControllerView {
 /** Decides a ship's input each step. NPCs get one of these; players are driven externally. */
 export interface ShipController {
   decide(ship: ShipEntity, world: ControllerView, dt: number, now: number): FlightInput;
+  /**
+   * Asked every step while the ship is friendly: return true to turn
+   * hostile of its own accord (an ambush). Omit for ships that only ever
+   * retaliate.
+   */
+  wantsToAttack?(ship: ShipEntity, world: ControllerView, dt: number, now: number): boolean;
 }
 
 export interface TurretAiTuning {
@@ -19,6 +25,12 @@ export interface TurretAiTuning {
   readonly burst: number;
   /** How far off the nose the target may be before firing, radians. */
   readonly aimTolerance: number;
+  /**
+   * While friendly: turn hostile once another team's ship has stayed within
+   * this distance for `ambushDelay` seconds. Omit to only ever retaliate.
+   */
+  readonly ambushRange?: number;
+  readonly ambushDelay?: number;
 }
 
 export const TURRET_AI: TurretAiTuning = { range: 240, interval: 1.3, burst: 0.35, aimTolerance: 0.35 };
@@ -31,6 +43,8 @@ export const TURRET_AI: TurretAiTuning = { range: 240, interval: 1.3, burst: 0.3
 export class TurretAi implements ShipController {
   private cooldown = 1;
   private burstUntil = 0;
+  /** When the nearest other-team ship first came within ambush range, or null. */
+  private closeSince: number | null = null;
 
   constructor(private readonly tuning: TurretAiTuning = TURRET_AI) {}
 
@@ -40,6 +54,8 @@ export class TurretAi implements ShipController {
     if (!target) return IDLE_INPUT;
     const dx = target.state.x - ship.state.x;
     const dz = target.state.z - ship.state.z;
+    // A friendly turret still tracks you with its nose; it just holds fire.
+    if (ship.stance === 'friendly') return { ...IDLE_INPUT, aim: [target.state.x, target.state.z], fire: false };
     const distance = Math.hypot(dx, dz);
     const linedUp = Math.abs(wrapAngle(Math.atan2(dx, dz) - ship.state.heading)) < this.tuning.aimTolerance;
     let fire = now < this.burstUntil;
@@ -49,6 +65,19 @@ export class TurretAi implements ShipController {
       fire = true;
     }
     return { ...IDLE_INPUT, aim: [target.state.x, target.state.z], fire };
+  }
+
+  wantsToAttack(ship: ShipEntity, world: ControllerView, _dt: number, now: number): boolean {
+    const range = this.tuning.ambushRange;
+    if (range === undefined) return false;
+    const target = world.nearestEnemy(ship);
+    const close = target !== null && Math.hypot(target.state.x - ship.state.x, target.state.z - ship.state.z) <= range;
+    if (!close) {
+      this.closeSince = null;
+      return false;
+    }
+    this.closeSince ??= now;
+    return now - this.closeSince >= (this.tuning.ambushDelay ?? 1.5);
   }
 }
 

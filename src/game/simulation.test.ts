@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { IdleController, TurretAi } from './controllers';
+import { IdleController, TURRET_AI, TurretAi } from './controllers';
 import { IDLE_INPUT } from './flightController';
 import { WorldSim } from './simulation';
 import { WEAPON_PROFILES } from './weapons';
@@ -155,5 +155,107 @@ describe('WorldSim', () => {
     expect(sim.pick(rock.x, rock.z)).toEqual({ kind: 'rock', rockId: rock.id });
     expect(sim.pick(sim.comet.x, sim.comet.z)).toEqual({ kind: 'comet' });
     expect(sim.pick(2500, -2500)).toBeNull();
+  });
+});
+
+describe('held ships', () => {
+  it('stops dead, ignores thrust and fire while held, and flies again once released', () => {
+    const sim = new WorldSim();
+    sim.addShip(player());
+    sim.setInput('p1', { ...IDLE_INPUT, thrust: 1, fire: true, aim: [0, 40] });
+    for (let t = 0; t < 1; t += 1 / 60) sim.step(1 / 60);
+    const moving = sim.getShip('p1')!;
+    expect(Math.hypot(moving.state.vx, moving.state.vz)).toBeGreaterThan(5);
+    sim.setHeld('p1', true);
+    expect(sim.getShip('p1')!.state.vz).toBe(0);
+    const start = { ...sim.getShip('p1')!.state };
+    const events = [];
+    for (let t = 0; t < 1; t += 1 / 60) events.push(...sim.step(1 / 60));
+    const held = sim.getShip('p1')!.state;
+    expect(held.x).toBe(start.x);
+    expect(held.z).toBe(start.z);
+    expect(events.filter((e) => e.type === 'shot-fired' && e.shipId === 'p1')).toHaveLength(0);
+    sim.setHeld('p1', false);
+    sim.setInput('p1', { ...IDLE_INPUT, thrust: 1 });
+    for (let t = 0; t < 0.5; t += 1 / 60) sim.step(1 / 60);
+    expect(Math.hypot(sim.getShip('p1')!.state.vx, sim.getShip('p1')!.state.vz)).toBeGreaterThan(5);
+  });
+});
+
+describe('stances', () => {
+  const run = (sim: WorldSim, seconds: number) => {
+    const events = [];
+    for (let t = 0; t < seconds; t += 1 / 60) events.push(...sim.step(1 / 60));
+    return events;
+  };
+
+  it('keeps a friendly turret quiet until the player shoots it, then it turns hostile and fires back', () => {
+    const sim = new WorldSim();
+    sim.addShip(player());
+    // Tough enough to survive the provoking burst and shoot back.
+    sim.addShip(npc({ controller: new TurretAi(), stance: 'friendly', spawn: { x: 0, z: 40, heading: Math.PI }, maxShield: 100, maxHull: 400 }));
+    expect(sim.getShip('n1')!.stance).toBe('friendly');
+    const quiet = run(sim, 3);
+    expect(quiet.filter((e) => e.type === 'shot-fired' && e.shipId === 'n1')).toHaveLength(0);
+    expect(quiet.filter((e) => e.type === 'ship-stance-changed')).toHaveLength(0);
+    sim.setInput('p1', { ...IDLE_INPUT, fire: true, aim: [0, 40] });
+    const provoked = run(sim, 1);
+    sim.setInput('p1', IDLE_INPUT);
+    const change = provoked.find((e) => e.type === 'ship-stance-changed');
+    expect(change).toMatchObject({ type: 'ship-stance-changed', shipId: 'n1', stance: 'hostile', byShipId: 'p1', reason: 'provoked' });
+    expect(sim.getShip('n1')!.stance).toBe('hostile');
+    const after = run(sim, 3);
+    expect(after.filter((e) => e.type === 'shot-fired' && e.shipId === 'n1').length).toBeGreaterThan(0);
+  });
+
+  it('lets a friendly turret ambush a ship that lingers in its ambush range', () => {
+    const sim = new WorldSim();
+    sim.addShip(player());
+    sim.addShip(npc({ controller: new TurretAi({ ...TURRET_AI, ambushRange: 50, ambushDelay: 1 }), stance: 'friendly', spawn: { x: 0, z: 40, heading: Math.PI } }));
+    const early = run(sim, 0.9);
+    expect(early.filter((e) => e.type === 'ship-stance-changed')).toHaveLength(0);
+    const late = run(sim, 0.3);
+    expect(late.find((e) => e.type === 'ship-stance-changed')).toMatchObject({ shipId: 'n1', stance: 'hostile', byShipId: null, reason: 'ambush' });
+  });
+
+  it('never provokes a ship marked unprovokable, however hard it is hit', () => {
+    const sim = new WorldSim();
+    sim.addShip(player());
+    sim.addShip(npc({ controller: new IdleController(), stance: 'friendly', provokable: false, spawn: { x: 0, z: 40, heading: Math.PI }, maxShield: 100, maxHull: 400 }));
+    sim.setInput('p1', { ...IDLE_INPUT, fire: true, aim: [0, 40] });
+    const events = run(sim, 2);
+    expect(events.some((e) => e.type === 'hit' && e.target.kind === 'ship')).toBe(true);
+    expect(events.filter((e) => e.type === 'ship-stance-changed')).toHaveLength(0);
+    expect(sim.getShip('n1')!.stance).toBe('friendly');
+  });
+
+  it('lets nothing hurt an invulnerable ship: shots, ramming or gas', () => {
+    const sim = new WorldSim();
+    sim.addShip(player());
+    sim.addShip(npc({ controller: new IdleController(), stance: 'friendly', provokable: false, invulnerable: true, spawn: { x: 0, z: 40, heading: Math.PI }, maxShield: 0, maxHull: 10 }));
+    const before = { ...sim.getShip('n1')!.vitals };
+    sim.setInput('p1', { ...IDLE_INPUT, fire: true, aim: [0, 40] });
+    const events = run(sim, 2);
+    expect(events.some((e) => e.type === 'hit' && e.target.kind === 'ship')).toBe(true);
+    expect(events.filter((e) => e.type === 'hit' && e.target.kind === 'ship').every((e) => e.type === 'hit' && e.amount === 0)).toBe(true);
+    expect(events.filter((e) => e.type === 'ship-damaged' && e.shipId === 'n1')).toHaveLength(0);
+    expect(events.filter((e) => e.type === 'ship-destroyed' && e.shipId === 'n1')).toHaveLength(0);
+    expect(sim.getShip('n1')!.vitals).toEqual(before);
+    expect(sim.getShip('n1')!.alive).toBe(true);
+  });
+
+  it('never ambushes from outside the range and resets to friendly on respawn', () => {
+    const sim = new WorldSim();
+    sim.addShip(player());
+    sim.addShip(npc({ controller: new TurretAi({ ...TURRET_AI, ambushRange: 20, ambushDelay: 0.5 }), stance: 'friendly', spawn: { x: 0, z: 40, heading: Math.PI }, maxShield: 0, maxHull: 5, respawnDelay: 1 }));
+    expect(run(sim, 2).filter((e) => e.type === 'ship-stance-changed')).toHaveLength(0);
+    sim.setInput('p1', { ...IDLE_INPUT, fire: true, aim: [0, 40] });
+    const events = run(sim, 4);
+    sim.setInput('p1', IDLE_INPUT);
+    expect(events.some((e) => e.type === 'ship-destroyed' && e.shipId === 'n1')).toBe(true);
+    expect(events.some((e) => e.type === 'ship-respawned' && e.shipId === 'n1')).toBe(true);
+    expect(sim.getShip('n1')!.stance).toBe('friendly');
+    sim.setShipStance('n1', 'hostile');
+    expect(sim.step(1 / 60).find((e) => e.type === 'ship-stance-changed')).toMatchObject({ shipId: 'n1', stance: 'hostile', reason: 'set' });
   });
 });

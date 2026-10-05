@@ -5,6 +5,8 @@ export interface LabelInfo {
   readonly name: string;
   readonly vitals: Vitals;
   readonly accent: string;
+  /** False hides the shield and hull bars (ships that cannot be hurt). */
+  readonly showBars?: boolean;
 }
 
 interface LabelElements {
@@ -12,7 +14,12 @@ interface LabelElements {
   readonly name: HTMLElement;
   readonly shieldFill: HTMLElement;
   readonly hullFill: HTMLElement;
+  readonly say: HTMLElement;
+  sayUntil: number;
 }
+
+/** Seconds an overhead chat line stays above a ship. */
+const SAY_SECONDS = 5;
 
 /**
  * Nametags with shield and hull bars that float above ships. DOM elements
@@ -34,8 +41,21 @@ export class WorldLabels {
     label.root.style.display = '';
     label.root.style.transform = `translate(-50%, -100%) translate(${screen.x.toFixed(1)}px, ${screen.y.toFixed(1)}px)`;
     label.name.textContent = info.name;
+    label.root.classList.toggle('label-plain', info.showBars === false);
+    if (label.sayUntil > 0 && performance.now() / 1000 > label.sayUntil) {
+      label.sayUntil = 0;
+      label.say.style.display = 'none';
+    }
     label.shieldFill.style.width = `${(100 * info.vitals.shield) / Math.max(1, info.vitals.maxShield)}%`;
     label.hullFill.style.width = `${(100 * info.vitals.hull) / Math.max(1, info.vitals.maxHull)}%`;
+  }
+
+  /** Show a line of overhead text above a ship for a few seconds, old-school chat style. */
+  say(id: string, text: string, accent: string): void {
+    const label = this.labels.get(id) ?? this.create(id, accent);
+    label.say.textContent = text;
+    label.say.style.display = '';
+    label.sayUntil = performance.now() / 1000 + SAY_SECONDS;
   }
 
   remove(id: string): void {
@@ -51,13 +71,16 @@ export class WorldLabels {
     const name = el('div', { className: 'label-name' });
     const shieldFill = el('div', { className: 'label-fill label-fill-shield' });
     const hullFill = el('div', { className: 'label-fill label-fill-hull' });
+    const say = el('div', { className: 'label-say' });
+    say.style.display = 'none';
     const root = el('div', { className: 'world-label', style: { borderColor: accent } }, [
+      say,
       name,
       el('div', { className: 'label-bar' }, [shieldFill]),
       el('div', { className: 'label-bar' }, [hullFill]),
     ]);
     this.root.append(root);
-    const label = { root, name, shieldFill, hullFill };
+    const label = { root, name, shieldFill, hullFill, say, sayUntil: 0 };
     this.labels.set(id, label);
     return label;
   }

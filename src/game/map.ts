@@ -133,6 +133,21 @@ export type MapObject =
 
 export const GAS_CLOUD_DEFAULTS = { radius: 60, damagePerSecond: 10, label: 'Toxic gas', colour: '#9bff3d' } as const;
 
+/** Icons a map may pin on the minimap, old-school style. Drawn by the HUD; the names are the contract. */
+export const MAP_ICON_NAMES = ['home', 'mine', 'crystal', 'skull', 'shop', 'repair', 'quest', 'flag', 'star', 'gate', 'fuel', 'anchor'] as const;
+export type MapIconName = (typeof MAP_ICON_NAMES)[number];
+
+/**
+ * Minimap annotations. Pure presentation: nothing in the simulation reads
+ * them. Labels name regions; icons mark places. Both are optional and
+ * live in the map JSON so authors can say where things are.
+ */
+export type MapMarker =
+  | { readonly type: 'label'; readonly x: number; readonly y: number; readonly text: string; readonly colour: string; readonly size: number; readonly onMinimap: boolean }
+  | { readonly type: 'icon'; readonly x: number; readonly y: number; readonly icon: MapIconName; readonly label: string; readonly colour: string | null; readonly onMinimap: boolean };
+
+export const LABEL_DEFAULTS = { colour: '#dfe6f2', size: 11 } as const;
+
 export interface MapComet extends CometTuning {
   readonly enabled: boolean;
   /** First comet starts near the spawn so it is on the radar right away. */
@@ -151,6 +166,8 @@ export interface MapDefinition {
   readonly rocks: readonly MapRock[];
   readonly comet: MapComet;
   readonly objects: readonly MapObject[];
+  /** Minimap labels and icons. */
+  readonly markers: readonly MapMarker[];
 }
 
 export const DEFAULT_STAR_LAYERS: readonly StarLayerSpec[] = [
@@ -254,6 +271,17 @@ export function provingGroundMapDefinition(): MapDefinition {
       { type: 'cache', x: 420, y: 430, resource: 'crystal', count: 4 },
       { type: 'beacon', id: 'north-marker', x: 250, y: 460, label: 'North Marker', description: 'Top of the proving ground', radius: 12 },
     ],
+    markers: [
+      { type: 'icon', x: 250, y: 250, icon: 'home', label: 'Spawn' },
+      { type: 'icon', x: 350, y: 345, icon: 'mine', label: 'Iron field' },
+      { type: 'icon', x: 320, y: 140, icon: 'crystal', label: 'Crystal vein' },
+      { type: 'icon', x: 150, y: 390, icon: 'skull', label: 'The Drift' },
+      { type: 'icon', x: 60, y: 60, icon: 'flag', label: "Raider's corner", colour: '#ff5c5c' },
+      { type: 'icon', x: 420, y: 430, icon: 'shop', label: 'Crystal cache' },
+      { type: 'icon', x: 445, y: 455, icon: 'quest', label: 'Navigator' },
+      { type: 'label', x: 110, y: 255, text: 'Ice shelf', colour: '#bfe0f0' },
+      { type: 'label', x: 430, y: 95, text: 'The Giant', colour: '#c9b59a' },
+    ],
   });
 }
 
@@ -293,6 +321,12 @@ export function defaultMapDefinition(): MapDefinition {
       // Two hazards within easy reach of the spawn: a wide, slow-burning toxic cloud and a small, vicious ion haze.
       { type: 'gas-cloud', id: 'spore-drift', x: 4620, y: 5260, radius: 120, damagePerSecond: 10, label: 'Toxic gas', colour: '#9bff3d' },
       { type: 'gas-cloud', id: 'ion-haze', x: 5380, y: 4560, radius: 80, damagePerSecond: 18, label: 'Ion haze', colour: '#c76bff' },
+    ],
+    markers: [
+      { type: 'icon', x: 5000, y: 5000, icon: 'home', label: 'Spawn', colour: null, onMinimap: true },
+      { type: 'icon', x: 5620, y: 5460, icon: 'mine', label: 'Stone field', colour: null, onMinimap: true },
+      { type: 'icon', x: 4620, y: 5260, icon: 'skull', label: 'Spore drift', colour: null, onMinimap: true },
+      { type: 'label', x: 5000, y: 5700, text: 'STARTER SECTOR', colour: '#9fb3cc', size: 12, onMinimap: false },
     ],
   };
 }
@@ -580,6 +614,40 @@ export function parseMapDefinition(input: unknown): MapDefinition {
     }
   });
 
+  const markers: MapMarker[] = list(root['markers'], 'map.markers').map((item, i) => {
+    const p = `map.markers[${i}]`;
+    const r = record(item, p);
+    const x = num(r['x'], `${p}.x`);
+    const y = num(r['y'], `${p}.y`);
+    switch (r['type']) {
+      case 'label':
+        return {
+          type: 'label',
+          x,
+          y,
+          text: str(r['text'], `${p}.text`),
+          colour: str(r['colour'], `${p}.colour`, LABEL_DEFAULTS.colour),
+          size: num(r['size'], `${p}.size`, LABEL_DEFAULTS.size),
+          onMinimap: bool(r['onMinimap'], `${p}.onMinimap`, false),
+        };
+      case 'icon': {
+        const icon = str(r['icon'], `${p}.icon`);
+        if (!(MAP_ICON_NAMES as readonly string[]).includes(icon)) throw new MapParseError(`${p}.icon`, `unknown icon "${icon}" (one of ${MAP_ICON_NAMES.join(', ')})`);
+        return {
+          type: 'icon',
+          x,
+          y,
+          icon: icon as MapIconName,
+          label: typeof r['label'] === 'string' ? r['label'] : '',
+          colour: r['colour'] === undefined || r['colour'] === null ? null : str(r['colour'], `${p}.colour`),
+          onMinimap: bool(r['onMinimap'], `${p}.onMinimap`, true),
+        };
+      }
+      default:
+        throw new MapParseError(`${p}.type`, 'expected "label" or "icon"');
+    }
+  });
+
   return {
     version: 1,
     name: str(root['name'], 'map.name', base.name),
@@ -590,6 +658,7 @@ export function parseMapDefinition(input: unknown): MapDefinition {
     rocks,
     comet,
     objects,
+    markers,
   };
 }
 
@@ -642,7 +711,13 @@ export interface ResolvedMap {
   readonly beacons: readonly Beacon[];
   readonly hazards: readonly Hazard[];
   readonly caches: readonly ResolvedCache[];
+  readonly markers: readonly ResolvedMarker[];
 }
+
+/** A marker in world coordinates, ready for the minimap. */
+export type ResolvedMarker =
+  | { readonly type: 'label'; readonly x: number; readonly z: number; readonly text: string; readonly colour: string; readonly size: number; readonly onMinimap: boolean }
+  | { readonly type: 'icon'; readonly x: number; readonly z: number; readonly icon: MapIconName; readonly label: string; readonly colour: string | null; readonly onMinimap: boolean };
 
 export function resolveMap(def: MapDefinition): ResolvedMap {
   const half = def.size / 2;
@@ -672,6 +747,7 @@ export function resolveMap(def: MapDefinition): ResolvedMap {
       o.type === 'gas-cloud' ? [{ id: o.id, kind: 'gas' as const, ...w(o.x, o.y), radius: o.radius, label: o.label, colour: o.colour, damagePerSecond: o.damagePerSecond }] : [],
     ),
     caches: def.objects.flatMap((o) => (o.type === 'cache' ? [{ ...w(o.x, o.y), resource: o.resource, count: o.count }] : [])),
+    markers: def.markers.map((m) => (m.type === 'label' ? { ...m, ...w(m.x, m.y) } : { ...m, ...w(m.x, m.y) })),
   };
 }
 

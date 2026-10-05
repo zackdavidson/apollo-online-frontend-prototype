@@ -4,7 +4,7 @@ import type { HitKind } from './damageRoll';
 import type { Hazard } from './hazards';
 import type { ResourceKind } from './loot';
 import type { Rock } from './rocks';
-import type { ShipId } from './world';
+import type { ShipId, Stance } from './world';
 import type { WeaponProfile } from './weapons';
 
 /**
@@ -32,6 +32,8 @@ export type GameEvent =
   | { readonly type: 'ship-destroyed'; readonly shipId: ShipId; readonly x: number; readonly z: number; readonly byShipId: ShipId | null }
   | { readonly type: 'ship-respawned'; readonly shipId: ShipId; readonly x: number; readonly z: number }
   | { readonly type: 'ship-removed'; readonly shipId: ShipId }
+  /** A ship changed stance: provoked by a hit, by its own ambush decision, or by `setShipStance`. */
+  | { readonly type: 'ship-stance-changed'; readonly shipId: ShipId; readonly stance: Stance; readonly byShipId: ShipId | null; readonly reason: 'provoked' | 'ambush' | 'set' }
   | { readonly type: 'rock-damaged'; readonly rock: Rock; readonly x: number; readonly z: number }
   | { readonly type: 'rock-destroyed'; readonly rock: Rock; readonly drops: Partial<Record<ResourceKind, number>> }
   | { readonly type: 'rock-respawned'; readonly rock: Rock }
