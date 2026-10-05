@@ -249,6 +249,53 @@ prompts bottom-centre. The old top-left readout and bottom-left control
 hints are gone; the controls live behind the Controls button and `/help`.
 Flight keys are ignored while the chat input has focus.
 
+### Interfaces: slots, ids and server commands
+
+Everything the player can open lives in an interface system
+(`src/hud/interfaces/`) modelled on old-school MMO clients and rendered
+with **React**. The model is React-free: `InterfaceStore` (`store.ts`) holds
+the registry, the open interface per slot and its props, and is unit
+tested; `ChatController` (`chat.ts`) holds the chat log and the dialogue
+state machine. React components (`ChatInterface`, `InventoryInterface`,
+`MapInterface`, `HelpInterface`, `PanelInterface`, `NoticeInterface`) read
+those stores through `useSyncExternalStore` and render into five **slot**
+containers mounted by `InterfaceManager`; the simulation, the scene and
+the per-frame canvases stay outside React. There is one interface open per
+slot:
+
+| slot           | where                              | opens by default |
+| -------------- | ---------------------------------- | ---------------- |
+| `chat`         | bottom-left                        | Chat (0)         |
+| `inventory`    | bottom-right, tabbed side panel    | Side panel (1)   |
+| `main`         | centre, over the other interfaces  | Map (2), Controls (3) |
+| `overlay`      | top-left, under everything         | Panel (4)        |
+| `full_overlay` | whole screen, over everything      | Notice (5)       |
+
+An interface is registered as `{ id, slot, name, view }`, where `view` is a
+React component receiving `{ id, props, close }`; the chat is id 0 by
+decree (`INTERFACE_IDS`). Child elements carry `data-component-id` so a
+server can address `id:component`. `InterfaceManager` exposes the store:
+`open(id, props)`, `close(id)`, `closeSlot(slot)`, `closeTopmost()`,
+`toggle`, `isOpen`, `setProps`, `list()`, and `apply(command)` for the
+server-shaped commands `interface-open`, `interface-close`,
+`interface-close-slot` and `interface-set` (props are per interface: the
+panel takes `title` and `lines`, the notice `title` and `body`, the side
+panel `tab`; props set on a closed interface wait for its next open). Until there
+is a server, `/ui` in the chat sends the same commands: `/ui list`,
+`/ui open 4 title=Objectives lines=Mine iron|Talk to the Navigator`,
+`/ui open 5 title=Warning body=Raiders inbound`, `/ui set 1 tab=2`,
+`/ui close-slot main`. `FlightSession.applyInterfaceCommand` is the hook a
+network layer would call.
+
+The **side panel** (`InventoryInterface`) is a strip of tabs over a content
+area, like the old RuneScape inventory. A tab is `{ id, label, icon?,
+Component }`, a React component that may read the HUD readout and actions
+through `useServices()`. The HUD defines four (Cargo, Ship, Settings,
+Controls in `interfaces/tabs.tsx`); add your own with
+`hud.inventory.addTab(...)`, replace them with `setTabs`, or switch with
+`selectTab`. Esc closes the topmost layer: a full overlay first, then the
+main window, then leaves flight.
+
 ### Toward online play
 
 - The server owns a `WorldSim`. Clients send `FlightInput` (and warp /

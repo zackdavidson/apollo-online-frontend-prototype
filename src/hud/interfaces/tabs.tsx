@@ -1,0 +1,115 @@
+import { RESOURCES, RESOURCE_KINDS, inventoryValue } from '../../game/loot';
+import { PIXEL_LEVELS, type PixelScope } from '../../scene/pixelate';
+import type { HudActions, HudInfo } from '../hud';
+import { useServices, useStoreValue, type InventoryTab } from './context';
+import { INTERFACE_IDS } from './index';
+
+/** The latest HUD readout, refreshed a few times a second. */
+function useHudInfo(): HudInfo | null {
+  const { info } = useServices<HudInfo, HudActions>();
+  return useStoreValue(info);
+}
+
+export function CargoTab() {
+  const info = useHudInfo();
+  return (
+    <>
+      {RESOURCE_KINDS.map((kind) => (
+        <div key={kind} className="cargo-cell" style={{ borderColor: RESOURCES[kind].colour }}>
+          <div className="cargo-name" style={{ color: RESOURCES[kind].colour }}>
+            {RESOURCES[kind].label}
+          </div>
+          <div className="cargo-count">{info?.cargo[kind] ?? 0}</div>
+        </div>
+      ))}
+      <div className="muted inv-footer">{info ? `worth ${inventoryValue(info.cargo)} · rocks broken ${info.rocksBroken}` : ''}</div>
+    </>
+  );
+}
+
+export function ShipTab() {
+  const info = useHudInfo();
+  if (!info) return null;
+  const { ship } = info;
+  return (
+    <>
+      <div className="inv-ship-name">{ship.name}</div>
+      <div className="muted">{ship.hullName}</div>
+      <div className="inv-bar">
+        <div className="label-fill label-fill-shield" style={{ width: `${(100 * ship.shield) / Math.max(1, ship.maxShield)}%` }} />
+      </div>
+      <div className="inv-bar-text">
+        shield {Math.ceil(ship.shield)} / {ship.maxShield}
+      </div>
+      <div className="inv-bar">
+        <div className="label-fill label-fill-hull" style={{ width: `${(100 * ship.hull) / Math.max(1, ship.maxHull)}%` }} />
+      </div>
+      <div className="inv-bar-text">
+        hull {Math.ceil(ship.hull)} / {ship.maxHull}
+      </div>
+      <div className="inv-weapons">
+        {info.weapons.map((group) => (
+          <div key={group.id} className={group.mounts ? '' : 'muted'}>
+            {group.key} · {group.label} {group.mounts ? `×${group.mounts}` : '(none fitted)'}
+          </div>
+        ))}
+      </div>
+      <div className="muted inv-footer">
+        kills {info.kills} · deaths {info.deaths}
+      </div>
+    </>
+  );
+}
+
+export function SettingsTab() {
+  const { actions, interfaces } = useServices<HudInfo, HudActions>();
+  const info = useHudInfo();
+  return (
+    <div className="inv-settings">
+      <button type="button" onClick={() => actions.onToggleCamera()}>
+        Camera: {info?.mode ?? 'perspective'}
+      </button>
+      <select title="Pixelation level (P)" value={String(info?.pixelLevel ?? 0)} onChange={(event) => actions.onPixelLevel(Number(event.target.value))}>
+        {PIXEL_LEVELS.map((level, index) => (
+          <option key={level.label} value={String(index)}>
+            Pixels: {level.label}
+          </option>
+        ))}
+      </select>
+      <select title="What gets pixelated (O)" value={info?.pixelScope ?? '3d'} onChange={(event) => actions.onPixelScope(event.target.value as PixelScope)}>
+        <option value="3d">3D only</option>
+        <option value="all">Everything</option>
+      </select>
+      <button type="button" onClick={() => interfaces.toggle(INTERFACE_IDS.help)}>
+        Controls
+      </button>
+      <button type="button" className="primary" onClick={() => actions.onExit()}>
+        Back to hangar (Esc)
+      </button>
+    </div>
+  );
+}
+
+export function ControlsTab() {
+  const { controls } = useServices();
+  return (
+    <dl className="inv-controls">
+      {controls.map(([key, what]) => (
+        <div key={key} style={{ display: 'contents' }}>
+          <dt>{key}</dt>
+          <dd>{what}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/** The side panel's default tabs: cargo, ship, settings and controls. Games add their own through the tabs store. */
+export function defaultTabs(): InventoryTab[] {
+  return [
+    { id: 0, label: 'Cargo', icon: '◆', Component: CargoTab },
+    { id: 1, label: 'Ship', icon: '➤', Component: ShipTab },
+    { id: 2, label: 'Settings', icon: '⚙', Component: SettingsTab },
+    { id: 3, label: 'Controls', icon: '?', Component: ControlsTab },
+  ];
+}

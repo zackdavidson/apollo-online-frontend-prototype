@@ -17,7 +17,7 @@ import { Store } from './state/store';
 import { FlightSession, type SessionShip } from './flight/flightSession';
 import { type MapDefinition, MapParseError, type ResolvedMap, parseMapDefinition, provingGroundMapDefinition, resolveMap } from './game/map';
 import { IdleController, TURRET_AI, TurretAi } from './game/controllers';
-import type { DialogueLine } from './hud/chat';
+import type { DialogueLine } from './hud/interfaces';
 import { fromMapCoords } from './game/mapCoords';
 import { WEAPON_PROFILES, weaponProfileFor } from './game/weapons';
 import { SceneView } from './render/sceneView';

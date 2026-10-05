@@ -1,11 +1,28 @@
 import { clear, el } from '../ui/dom';
 import type { CameraMode } from '../scene/cameraRig';
-import { RESOURCES, RESOURCE_KINDS, inventoryValue, type Inventory } from '../game/loot';
+import type { Inventory } from '../game/loot';
 import { fromMapCoords, headingBearing, toMapCoords, worldVectorToMap } from '../game/mapCoords';
 import type { ResolvedMarker } from '../game/map';
 import { drawMapIcon } from './mapIcons';
-import { ChatPanel } from './chat';
-import { PIXEL_LEVELS, type PixelScope } from '../scene/pixelate';
+import {
+  ChatController,
+  ChatInterface,
+  HelpInterface,
+  INTERFACE_IDS,
+  InterfaceManager,
+  InterfaceStore,
+  InventoryInterface,
+  MapInterface,
+  NoticeInterface,
+  PanelInterface,
+  ValueStore,
+  type HudServices,
+  type InterfaceView,
+  type InventoryTab,
+  type MapWindowBridge,
+} from './interfaces';
+import { defaultTabs } from './interfaces/tabs';
+import type { PixelScope } from '../scene/pixelate';
 import type { WeaponGroup } from '../game/weapons';
 
 export interface WeaponGroupReadout {
@@ -48,6 +65,8 @@ export interface HudInfo {
   /** Map-authored labels and icons. */
   readonly markers: readonly ResolvedMarker[];
   readonly mapName: string;
+  /** The player's ship, for the side panel. */
+  readonly ship: { readonly name: string; readonly hullName: string; readonly shield: number; readonly maxShield: number; readonly hull: number; readonly maxHull: number };
   /** The shooting star while it is in the sector. */
   readonly comet: { readonly x: number; readonly z: number; readonly vx: number; readonly vz: number; readonly hp: number; readonly maxHp: number } | null;
 }
@@ -83,16 +102,19 @@ const MINIMAP_INSET = 7;
 export class FlightHud {
   private readonly status: HTMLElement;
   private readonly prompt: HTMLElement;
-  private readonly help: HTMLElement;
-  readonly chat: ChatPanel;
-  private readonly cameraButton: HTMLButtonElement;
+  /** Every interface by id; open and close them here or through server commands. */
+  readonly interfaces: InterfaceManager;
+  readonly chat: ChatController;
+  /** The side panel's tabs; add, replace or select to shape it at runtime. */
+  readonly inventory: { addTab(tab: InventoryTab): void; removeTab(id: number): void; setTabs(tabs: readonly InventoryTab[]): void; selectTab(id: number): void };
+  private readonly store = new InterfaceStore<InterfaceView>();
+  private readonly tabs: ValueStore<readonly InventoryTab[]>;
+  private readonly info = new ValueStore<HudInfo | null>(null);
+  private lastInfoPush = -Infinity;
+  private readonly mapBridge: MapWindowBridge;
+  private mapCanvas: HTMLCanvasElement | null = null;
+  private mapSize = 0;
   private readonly minimap: HTMLCanvasElement;
-  private readonly bigMap: HTMLElement;
-  private readonly bigMapCanvas: HTMLCanvasElement;
-  private readonly bigMapTitle: HTMLElement;
-  private readonly bigMapCursor: HTMLElement;
-  private bigMapSize = 0;
-  private bigMapCursorText = '';
   private lastInfo: HudInfo | null = null;
   private readonly message: HTMLElement;
   private readonly hazardVignette: HTMLElement;
@@ -102,8 +124,6 @@ export class FlightHud {
   private readonly cometArrow: HTMLElement;
   private readonly cometArrowLabel: HTMLElement;
   private readonly weaponBar: HTMLElement;
-  private readonly pixelSelect: HTMLSelectElement;
-  private readonly scopeSelect: HTMLSelectElement;
   private readonly weaponSlots = new Map<WeaponGroup, { root: HTMLElement; fill: HTMLElement; label: HTMLElement; state: HTMLElement }>();
   private halfExtent = 0;
 
@@ -111,57 +131,48 @@ export class FlightHud {
     this.status = el('div', { className: 'hud-status' });
     this.prompt = el('div', { className: 'hud hud-prompt' });
     this.prompt.style.display = 'none';
-    this.help = el('div', { className: 'hud hud-help' }, [
-      el('h3', { text: 'Controls' }),
-      el('dl', {}, CONTROLS.flatMap(([key, what]) => [el('dt', { text: key }), el('dd', { text: what })])),
-      el('p', { className: 'muted', text: 'Esc or the Controls button closes this.' }),
-    ]);
-    this.help.style.display = 'none';
-    this.chat = new ChatPanel({ onSend: (text) => actions.onChatSend(text) });
-    this.cameraButton = el('button', { type: 'button', text: 'Camera: perspective' });
-    this.cameraButton.addEventListener('click', actions.onToggleCamera);
-    const helpButton = el('button', { type: 'button', text: 'Controls' });
-    helpButton.addEventListener('click', () => this.setHelpVisible(!this.helpVisible));
-    const exit = el('button', { type: 'button', text: 'Hangar (Esc)', className: 'primary span-2' });
-    exit.addEventListener('click', actions.onExit);
-    this.pixelSelect = el('select', { title: 'Pixelation level (P)' });
-    PIXEL_LEVELS.forEach((level, index) => this.pixelSelect.append(el('option', { value: String(index), text: `Pixels: ${level.label}` })));
-    this.pixelSelect.title = 'Pixelation level (P)';
-    this.pixelSelect.addEventListener('change', () => actions.onPixelLevel(Number(this.pixelSelect.value)));
-    this.scopeSelect = el('select', { title: 'What gets pixelated (O)' });
-    this.scopeSelect.append(el('option', { value: '3d', text: '3D only' }), el('option', { value: 'all', text: 'Everything' }));
-    this.scopeSelect.addEventListener('change', () => actions.onPixelScope(this.scopeSelect.value as PixelScope));
-    this.minimap = el('canvas', { className: 'hud-minimap', title: 'Click to warp there · M expands' });
-    sizeCanvas(this.minimap, MINIMAP_SIZE);
-    const expand = el('button', { type: 'button', className: 'hud-map-expand', text: '⤢', title: 'Expand map (M)' });
-    expand.addEventListener('click', () => this.setMapExpanded(!this.mapExpanded));
-    this.bigMapCanvas = el('canvas', { title: 'Click to warp there' });
-    this.bigMapTitle = el('span');
-    this.bigMapCursor = el('span', { className: 'muted' });
-    this.bigMap = el('div', { className: 'hud hud-bigmap' }, [
-      el('div', { className: 'bigmap-title' }, [this.bigMapTitle, el('span', { className: 'muted', text: 'click to warp · M or Esc closes' })]),
-      this.bigMapCanvas,
-      el('div', { className: 'bigmap-caption' }, [el('span', { className: 'muted', text: 'map coordinates, (0, 0) bottom-left' }), this.bigMapCursor]),
-    ]);
-    this.bigMap.style.display = 'none';
+    // Interfaces: a React tree fed by small external stores; the session only ever sees the store API.
+    this.chat = new ChatController({ onSend: (text) => actions.onChatSend(text) });
+    this.tabs = new ValueStore<readonly InventoryTab[]>(defaultTabs());
+    this.inventory = {
+      addTab: (tab) => this.tabs.update((tabs) => [...tabs.filter((existing) => existing.id !== tab.id), tab]),
+      removeTab: (id) => this.tabs.update((tabs) => tabs.filter((tab) => tab.id !== id)),
+      setTabs: (tabs) => this.tabs.set([...tabs]),
+      selectTab: (id) => this.store.setProps(INTERFACE_IDS.inventory, { tab: id }),
+    };
+    this.mapBridge = {
+      title: new ValueStore(''),
+      cursor: new ValueStore(''),
+      attach: (canvas) => this.attachMapCanvas(canvas),
+      onPointerDown: (event) => {
+        if (!this.mapCanvas) return;
+        warpFromClick(this.mapCanvas, () => this.mapSize)(event);
+      },
+      onPointerMove: (event) => {
+        const point = this.mapCanvas ? this.mapPointAt(this.mapCanvas, this.mapSize, event) : null;
+        this.mapBridge.cursor.set(point ? `cursor ${point.x.toFixed(0)}, ${point.y.toFixed(0)}` : '');
+      },
+      onPointerLeave: () => this.mapBridge.cursor.set(''),
+    };
+    this.store.register({ id: INTERFACE_IDS.chat, slot: 'chat', name: 'Chat', view: ChatInterface });
+    this.store.register({ id: INTERFACE_IDS.inventory, slot: 'inventory', name: 'Side panel', view: InventoryInterface });
+    this.store.register({ id: INTERFACE_IDS.map, slot: 'main', name: 'Map', view: MapInterface });
+    this.store.register({ id: INTERFACE_IDS.help, slot: 'main', name: 'Controls', view: HelpInterface });
+    this.store.register({ id: INTERFACE_IDS.panel, slot: 'overlay', name: 'Panel', view: PanelInterface });
+    this.store.register({ id: INTERFACE_IDS.notice, slot: 'full_overlay', name: 'Notice', view: NoticeInterface });
     // Clicking either map warps to that map coordinate; the frame is ignored.
-    const warpFromClick = (canvas: HTMLCanvasElement, size: number) => (event: PointerEvent): void => {
+    const warpFromClick = (canvas: HTMLCanvasElement, size: () => number) => (event: PointerEvent): void => {
       if (event.button !== 0 || this.halfExtent <= 0) return;
-      const point = this.mapPointAt(canvas, size, event);
+      const point = this.mapPointAt(canvas, size(), event);
       if (!point) return;
       const world = fromMapCoords(point.x, point.y, this.halfExtent);
       actions.onTeleport(world.x, world.z);
     };
-    this.minimap.addEventListener('pointerdown', warpFromClick(this.minimap, MINIMAP_SIZE));
-    this.bigMapCanvas.addEventListener('pointerdown', (event) => warpFromClick(this.bigMapCanvas, this.bigMapSize)(event));
-    this.bigMapCanvas.addEventListener('pointermove', (event) => {
-      const point = this.mapPointAt(this.bigMapCanvas, this.bigMapSize, event);
-      this.bigMapCursorText = point ? `cursor ${point.x.toFixed(0)}, ${point.y.toFixed(0)}` : '';
-      this.bigMapCursor.textContent = this.bigMapCursorText;
-    });
-    this.bigMapCanvas.addEventListener('pointerleave', () => {
-      this.bigMapCursor.textContent = '';
-    });
+    this.minimap = el('canvas', { className: 'hud-minimap', title: 'Click to warp there · M expands' });
+    sizeCanvas(this.minimap, MINIMAP_SIZE);
+    this.minimap.addEventListener('pointerdown', warpFromClick(this.minimap, () => MINIMAP_SIZE));
+    const expand = el('button', { type: 'button', className: 'hud-map-expand', text: '⤢', title: 'Expand map (M)' });
+    expand.addEventListener('click', () => this.setMapExpanded(!this.mapExpanded));
     this.message = el('div', { className: 'hud hud-message' });
     this.message.style.display = 'none';
     this.hazardVignette = el('div', { className: 'hazard-vignette' });
@@ -183,23 +194,22 @@ export class FlightHud {
       this.cometArrow,
       this.weaponBar,
       this.prompt,
-      el('div', { className: 'hud hud-right-column' }, [
-        el('div', { className: 'minimap-wrap' }, [this.minimap, expand]),
-        this.status,
-        el('div', { className: 'hud-settings' }, [this.cameraButton, helpButton, this.pixelSelect, this.scopeSelect, exit]),
-      ]),
-      this.chat.root,
-      this.help,
-      this.bigMap,
+      el('div', { className: 'hud hud-right-column' }, [el('div', { className: 'minimap-wrap' }, [this.minimap, expand]), this.status]),
     );
+    const services: HudServices<HudInfo, HudActions> = { interfaces: this.store, chat: this.chat, tabs: this.tabs, info: this.info, actions, controls: CONTROLS, map: this.mapBridge };
+    this.interfaces = new InterfaceManager(root, this.store, services as HudServices);
+    // The chat box and the side panel are open from the start; the rest open on demand.
+    this.interfaces.open(INTERFACE_IDS.chat);
+    this.interfaces.open(INTERFACE_IDS.inventory);
   }
 
   get helpVisible(): boolean {
-    return this.help.style.display !== 'none';
+    return this.interfaces.isOpen(INTERFACE_IDS.help);
   }
 
   setHelpVisible(visible: boolean): void {
-    this.help.style.display = visible ? '' : 'none';
+    if (visible) this.interfaces.open(INTERFACE_IDS.help);
+    else this.interfaces.close(INTERFACE_IDS.help);
   }
 
   /** A key hint above the weapon bar, e.g. "Space · Talk to Navigator"; null hides it. */
@@ -212,21 +222,31 @@ export class FlightHud {
     this.prompt.replaceChildren(el('kbd', { text: prompt.key }), el('span', { text: prompt.text }));
   }
 
-  get mapExpanded(): boolean {
-    return this.bigMap.style.display !== 'none';
+  /** React hands over the expanded map's canvas when the window mounts; size it and draw straight away. */
+  private attachMapCanvas(canvas: HTMLCanvasElement | null): void {
+    this.mapCanvas = canvas;
+    if (!canvas) return;
+    this.mapSize = Math.max(320, Math.floor(Math.min(window.innerWidth - 80, window.innerHeight - 140)));
+    sizeCanvas(canvas, this.mapSize);
+    if (this.lastInfo) {
+      this.mapBridge.title.set(this.lastInfo.mapName);
+      this.drawMap(canvas, this.mapSize, this.lastInfo, true);
+    }
   }
 
-  /** Show or hide the large map overlay; it is sized to the viewport when opened. */
+  get mapExpanded(): boolean {
+    return this.interfaces.isOpen(INTERFACE_IDS.map);
+  }
+
+  /** Show or hide the large map window (interface 2); it is sized to the viewport when opened. */
   setMapExpanded(expanded: boolean): void {
-    if (expanded === this.mapExpanded) return;
-    if (expanded) {
-      this.bigMapSize = Math.max(320, Math.floor(Math.min(window.innerWidth - 80, window.innerHeight - 140)));
-      sizeCanvas(this.bigMapCanvas, this.bigMapSize);
-      this.bigMap.style.display = '';
-      if (this.lastInfo) this.drawMap(this.bigMapCanvas, this.bigMapSize, this.lastInfo, true);
-    } else {
-      this.bigMap.style.display = 'none';
-    }
+    if (expanded) this.interfaces.open(INTERFACE_IDS.map);
+    else this.interfaces.close(INTERFACE_IDS.map);
+  }
+
+  dispose(): void {
+    this.interfaces.dispose();
+    this.chat.dispose();
   }
 
   /** The map coordinate under a pointer event on one of the map canvases, or null when on the frame. */
@@ -249,13 +269,7 @@ export class FlightHud {
     const neutral = nearest(info.neutrals);
     this.status.replaceChildren(
       el('div', { className: 'status-main', text: `x ${here.x.toFixed(0)}  y ${here.y.toFixed(0)}  ·  hdg ${headingBearing(info.heading).toFixed(0).padStart(3, '0')}°  ·  ${info.speed.toFixed(0)} u/s` }),
-      el('div', { className: 'muted', text: `${info.mode} · tilt ${info.tiltDegrees.toFixed(0)}° · zoom ${info.zoomDistance.toFixed(0)} · kills ${info.kills} · deaths ${info.deaths} · rocks ${info.rocksBroken}` }),
-      el('div', { className: 'hud-cargo' }, [
-        ...RESOURCE_KINDS.map((kind) =>
-          el('span', { className: 'cargo-item', style: { color: RESOURCES[kind].colour } }, [`${RESOURCES[kind].label.toLowerCase()} ${info.cargo[kind]} `]),
-        ),
-        el('span', { className: 'muted', text: `· worth ${inventoryValue(info.cargo)}` }),
-      ]),
+      el('div', { className: 'muted', text: `${info.mode} · tilt ${info.tiltDegrees.toFixed(0)}° · zoom ${info.zoomDistance.toFixed(0)}` }),
       el('div', {
         className: 'muted',
         text: enemy !== null ? `enemy ${enemy.toFixed(0)} away` : neutral !== null ? `no hostiles · friendly ship ${neutral.toFixed(0)} away` : 'no enemies up',
@@ -268,15 +282,18 @@ export class FlightHud {
     this.message.textContent = info.message ?? '';
     this.message.style.display = info.message ? '' : 'none';
     this.updateWeapons(info.weapons);
-    this.cameraButton.textContent = `Camera: ${info.mode}`;
-    if (this.pixelSelect.value !== String(info.pixelLevel)) this.pixelSelect.value = String(info.pixelLevel);
-    if (this.scopeSelect.value !== info.pixelScope) this.scopeSelect.value = info.pixelScope;
     this.lastInfo = info;
     this.halfExtent = info.halfExtent;
     this.drawMap(this.minimap, MINIMAP_SIZE, info, false);
-    if (this.mapExpanded) {
-      this.bigMapTitle.textContent = info.mapName;
-      this.drawMap(this.bigMapCanvas, this.bigMapSize, info, true);
+    if (this.mapExpanded && this.mapCanvas) {
+      this.mapBridge.title.set(info.mapName);
+      this.drawMap(this.mapCanvas, this.mapSize, info, true);
+    }
+    // React reads the readout a few times a second; the canvases above redraw every frame.
+    const now = performance.now();
+    if (now - this.lastInfoPush > 120) {
+      this.lastInfoPush = now;
+      this.info.set(info);
     }
   }
 

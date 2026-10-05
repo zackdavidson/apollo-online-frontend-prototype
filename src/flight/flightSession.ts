@@ -16,7 +16,7 @@ import { sampleWarp } from '../game/warp';
 import { WEAPON_GROUPS } from '../game/weapons';
 import type { Pick, ShipEntity, ShipId, Stance } from '../game/world';
 import { HitMarkers, type HitStyle } from '../hud/hitMarkers';
-import type { DialogueLine } from '../hud/chat';
+import { parseInterfaceCommand, type DialogueLine, type InterfaceCommand } from '../hud/interfaces';
 import { FlightHud } from '../hud/hud';
 import { FlightInputTracker } from '../hud/input';
 import { WorldLabels } from '../hud/labels';
@@ -183,9 +183,7 @@ export class FlightSession {
       // Esc closes whatever is open first (dialogue, help, map), then leaves flight.
       onExit: () => {
         if (this.hud.chat.dialogueOpen) this.hud.chat.closeDialogue();
-        else if (this.hud.helpVisible) this.hud.setHelpVisible(false);
-        else if (this.hud.mapExpanded) this.hud.setMapExpanded(false);
-        else options.onExit();
+        else if (!this.hud.interfaces.closeTopmost()) options.onExit();
       },
       // While talking, only Space (advance) and Esc (close) do anything.
       onToggleCamera: () => this.unlessTalking(() => this.scene.camera.toggleMode()),
@@ -246,7 +244,7 @@ export class FlightSession {
   }
 
   dispose(): void {
-    this.hud.chat.dispose();
+    this.hud.dispose();
     if (this.disposed) return;
     this.disposed = true;
     cancelAnimationFrame(this.frameHandle);
@@ -412,6 +410,7 @@ export class FlightSession {
       hazards: this.sim.hazards.hazards,
       markers: this.sim.map.markers,
       mapName: this.sim.map.name,
+      ship: { name: player.spec.name, hullName: player.spec.hullName, shield: player.vitals.shield, maxShield: player.vitals.maxShield, hull: player.vitals.hull, maxHull: player.vitals.maxHull },
       comet: comet.alive ? comet : null,
     });
     const inside = player.alive ? this.sim.hazards.insideFor(PLAYER_ID)[0] : undefined;
@@ -454,12 +453,27 @@ export class FlightSession {
     if (!this.inDialogue) action();
   }
 
+  /** What a server would call: open, close or update an interface by id. Returns an error message or null. */
+  applyInterfaceCommand(command: InterfaceCommand): string | null {
+    return this.hud.interfaces.apply(command);
+  }
+
   /** A line typed in the chat box: a local command, or something said out loud over the ship. */
   private chatSend(text: string): void {
     if (text.startsWith('/')) {
-      const command = text.slice(1).split(/\s+/)[0]?.toLowerCase();
-      if (command === 'help') this.hud.setHelpVisible(true);
-      else this.hud.chat.addMessage({ from: '', kind: 'system', text: `Unknown command "${text}". Try /help.` });
+      const [command = '', ...args] = text.slice(1).split(/\s+/);
+      const say = (line: string): void => this.hud.chat.addMessage({ from: '', kind: 'system', text: line });
+      if (command.toLowerCase() === 'help') this.hud.setHelpVisible(true);
+      else if (command.toLowerCase() === 'ui') {
+        // Stands in for the server until there is one: the same commands it will send.
+        const parsed = parseInterfaceCommand(args);
+        if (parsed === 'list') for (const info of this.hud.interfaces.list()) say(`#${info.id} ${info.name} · ${info.slot}${info.open ? ' · open' : ''}`);
+        else if (typeof parsed === 'string') say(parsed);
+        else {
+          const error = this.applyInterfaceCommand(parsed);
+          if (error) say(error);
+        }
+      } else say(`Unknown command "${text}". Try /help or /ui.`);
       return;
     }
     const player = this.sim.getShip(PLAYER_ID)!;
