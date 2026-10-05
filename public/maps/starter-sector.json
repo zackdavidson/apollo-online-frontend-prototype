@@ -4233,5 +4233,26 @@
     "enabled": true,
     "firstNearStart": true
   },
-  "objects": []
+  "objects": [
+    {
+      "type": "gas-cloud",
+      "id": "spore-drift",
+      "x": 4620,
+      "y": 5260,
+      "radius": 120,
+      "damagePerSecond": 10,
+      "label": "Toxic gas",
+      "colour": "#9bff3d"
+    },
+    {
+      "type": "gas-cloud",
+      "id": "ion-haze",
+      "x": 5380,
+      "y": 4560,
+      "radius": 80,
+      "damagePerSecond": 18,
+      "label": "Ion haze",
+      "colour": "#c76bff"
+    }
+  ]
 }

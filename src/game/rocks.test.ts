@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { INITIAL_FLIGHT_STATE } from './flightController';
 import { createRng } from './random';
-import { DEFAULT_ROCK_LAYOUT, ROCK_KINDS, RockField, dropsFor, hashToUnit, hitPointsFor, layoutToSpecs, rockFromSpec, type Rock, type RockSpec } from './rocks';
+import { DEFAULT_ROCK_LAYOUT, ROCK_KINDS, RockField, dropsFor, hashToUnit, hitPointsFor, isDamaged, layoutToSpecs, rockFromSpec, type Rock, type RockSpec } from './rocks';
 
 const spec = (overrides: Partial<RockSpec> = {}): RockSpec => ({ id: 'r1', kind: 'stone', x: 0, z: 0, radius: 4, respawnDelay: null, ...overrides });
 const rock = (overrides: Partial<RockSpec> = {}): Rock => rockFromSpec(spec(overrides));
@@ -74,6 +74,25 @@ describe('RockField', () => {
     // Starting inside a rock counts as hitting it where you are.
     expect(field.firstAlong(0, 20.5, 0, 25)).toMatchObject({ rock: { id: 'pebble' }, x: 0, z: 20.5 });
     expect(field.firstAlong(0, 20.5, 0, 20.5)?.rock.id).toBe('pebble');
+  });
+
+  it('reports only damaged rocks for health bars, shared by anyone who has them in view', () => {
+    const field = new RockField([spec({ id: 'a' }), spec({ id: 'b', x: 30 }), spec({ id: 'far', x: 900, respawnDelay: 5 })]);
+    expect(field.damagedInView(0, 0, 100)).toEqual([]);
+    expect(isDamaged(field.get('a')!)).toBe(false);
+    field.damage(field.get('b')!, 1, 0);
+    field.damage(field.get('far')!, 1, 0);
+    // Two players at different spots: both see b's bar, only the one near 'far' sees that one.
+    expect(field.damagedInView(0, 0, 100).map((r) => r.id)).toEqual(['b']);
+    expect(field.damagedInView(25, 0, 100).map((r) => r.id)).toEqual(['b']);
+    expect(field.damagedInView(880, 0, 100).map((r) => r.id)).toEqual(['far']);
+    expect(field.snapshot(0, 0, 100).find((r) => r.id === 'b')!.hp).toBe(field.get('b')!.maxHp - 1);
+    // A mined-out rock is not in view, and a respawned one is whole again, so neither has a bar.
+    field.damage(field.get('far')!, 1e9, 1);
+    expect(field.damagedInView(880, 0, 100)).toEqual([]);
+    field.step(7);
+    expect(field.inView(880, 0, 100).map((r) => r.id)).toEqual(['far']);
+    expect(field.damagedInView(880, 0, 100)).toEqual([]);
   });
 
   it('respawns a mined-out rock with the same id after its delay, and never without one', () => {

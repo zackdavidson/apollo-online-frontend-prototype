@@ -226,7 +226,7 @@ export class BuilderPanel {
       fileInput.value = '';
     });
     const load = button('Load map JSON…', () => fileInput.click());
-    const reset = button('Default map', () => {
+    const reset = button('Start map', () => {
       this.actions.resetMap();
       this.mapStatus.textContent = '';
     });

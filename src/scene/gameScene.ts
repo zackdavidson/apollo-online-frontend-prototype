@@ -14,6 +14,7 @@ import {
   WebGLRenderer,
 } from 'three';
 import type { Beacon } from '../game/beacons';
+import type { Hazard } from '../game/hazards';
 import type { CometState } from '../game/comet';
 import type { Pickup } from '../game/loot';
 import type { ResolvedScenery } from '../game/map';
@@ -21,6 +22,7 @@ import type { Projectile } from '../game/projectiles';
 import { createRng } from '../game/random';
 import type { Rock } from '../game/rocks';
 import { BeaconRenderer } from './beaconRenderer';
+import { HazardRenderer } from './hazardRenderer';
 import { BeamRenderer, type BeamVisual } from './beamRenderer';
 import { CameraRig, type CameraMode } from './cameraRig';
 import { CometVisual } from './cometVisual';
@@ -92,6 +94,7 @@ export class GameScene {
   private readonly glowTexture = createGlowTexture();
   private readonly cometVisual: CometVisual;
   private readonly beacons: BeaconRenderer;
+  private readonly hazards: HazardRenderer;
   private readonly tunnel: WarpTunnel;
   private readonly chargeGlows: Sprite[] = [];
   private readonly raycaster = new Raycaster();
@@ -137,6 +140,7 @@ export class GameScene {
     this.effects = new EffectsSystem(createRng(options.seed + 1));
     this.cometVisual = new CometVisual(createRng(options.seed + 6), this.glowTexture);
     this.beacons = new BeaconRenderer(this.glowTexture);
+    this.hazards = new HazardRenderer(this.glowTexture);
     this.tunnel = new WarpTunnel(createRng(options.seed + 7));
     container.append(this.tunnel.canvas);
     this.scene.add(
@@ -149,6 +153,7 @@ export class GameScene {
       this.effects,
       this.cometVisual,
       this.beacons,
+      this.hazards,
       this.bars.group,
     );
     // Health bars stay crisp whatever the pixelation setting.
@@ -250,6 +255,25 @@ export class GameScene {
   /** Beacons are static; set them once per map. */
   setBeacons(beacons: readonly Beacon[]): void {
     this.beacons.setBeacons(beacons);
+  }
+
+  /**
+   * Gas clouds and other area hazards; static per map. They live on the
+   * overlay layer, so pixelation leaves them alone: the pixelator's small
+   * buffer would both chunk them and blow their point sizes up.
+   */
+  setHazards(hazards: readonly Hazard[]): void {
+    this.hazards.setHazards(hazards);
+    this.hazards.traverse((child) => child.layers.set(OVERLAY_LAYER));
+  }
+
+  setHazardHovered(id: string | null): void {
+    this.hazards.setHovered(id);
+  }
+
+  /** Gas thins around this point (the player's ship) so it stays visible inside a cloud. */
+  setHazardFocus(point: { readonly x: number; readonly z: number; readonly radius: number } | null): void {
+    this.hazards.setFocus(point);
   }
 
   syncHealthBars(entries: readonly BarEntry[]): void {
@@ -359,6 +383,7 @@ export class GameScene {
     this.beamRenderer.sync(this.beams, time);
     if (this.comet) this.cometVisual.update(this.comet, dt, time, this.cometHovered);
     this.beacons.update(time);
+    this.hazards.update(dt, time);
     this.tunnel.update(dt, this.warpOverlay.opacity, this.warpOverlay.intensity);
     this.world.update(this.camera.mode, this.camera.height, this.camera.camera.position.x, this.camera.camera.position.z, time);
   }
@@ -379,6 +404,7 @@ export class GameScene {
     this.effects.dispose();
     this.cometVisual.dispose();
     this.beacons.dispose();
+    this.hazards.dispose();
     this.tunnel.dispose();
     for (const sprite of this.chargeGlows) (sprite.material as SpriteMaterial).dispose();
     this.glowTexture.dispose();

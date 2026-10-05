@@ -15,7 +15,8 @@ import {
 import { resolveParts } from './state/shipState';
 import { Store } from './state/store';
 import { FlightSession, type SessionShip } from './flight/flightSession';
-import { MapParseError, defaultMapDefinition, parseMapDefinition, resolveMap, type MapDefinition } from './game/map';
+import { type MapDefinition, MapParseError, type ResolvedMap, parseMapDefinition, provingGroundMapDefinition, resolveMap } from './game/map';
+import { fromMapCoords } from './game/mapCoords';
 import { WEAPON_PROFILES, weaponProfileFor } from './game/weapons';
 import { SceneView } from './render/sceneView';
 import { BuilderPanel } from './ui/panel';
@@ -71,7 +72,7 @@ const panel = new BuilderPanel(
     toggleOutline: (visible) => scene.setOutlineVisible(visible),
     flyShip: () => enterFlight(),
     loadMapFile: async (file) => tryLoadMap(await file.text()),
-    resetMap: () => setMap(defaultMapDefinition()),
+    resetMap: () => setMap(provingGroundMapDefinition()),
     // Saves the map that will fly next. A parsed map always holds every rock
     // explicitly (any "generate" recipe was expanded on load), so this is also
     // how an authored recipe gets baked into a server-ready file.
@@ -89,7 +90,7 @@ const panel = new BuilderPanel(
 );
 
 let flight: FlightSession | null = null;
-let currentMap: MapDefinition = defaultMapDefinition();
+let currentMap: MapDefinition = provingGroundMapDefinition();
 
 function setMap(map: MapDefinition): void {
   currentMap = map;
@@ -140,11 +141,22 @@ function enterFlight(): void {
   const map = resolveMap(currentMap);
   flight = new FlightSession(flightRoot!, {
     player: sessionShip(state, `${catalog.getHull(state.hullId).name} (you)`),
-    // The raider sits a little ahead and to the side of wherever the map spawns the player.
-    npcs: [{ ...sessionShip(raider, 'Raider'), x: map.spawn.x + 70, z: map.spawn.z + 95 }],
+    npcs: [{ ...sessionShip(raider, 'Raider'), ...raiderPosition(map) }],
     map,
     onExit: exitFlight,
   });
+}
+
+/**
+ * Where the raider waits: the bottom-left corner of the map when that is
+ * close enough to the spawn to matter (small maps like the Proving Ground),
+ * otherwise a little ahead and to the side of the player.
+ */
+function raiderPosition(map: ResolvedMap): { x: number; z: number } {
+  const size = map.halfExtent * 2;
+  const corner = fromMapCoords(size * 0.12, size * 0.12, map.halfExtent);
+  const far = Math.hypot(corner.x - map.spawn.x, corner.z - map.spawn.z) > 400;
+  return far ? { x: map.spawn.x + 70, z: map.spawn.z + 95 } : corner;
 }
 
 function exitFlight(): void {

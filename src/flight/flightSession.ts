@@ -60,7 +60,8 @@ const PLAYER_ID = 'player';
 const MAX_FRAME_DT = 0.05;
 const TILT_DEGREES_PER_SECOND = 50;
 const LABEL_HEIGHT = 3.4;
-const ROCK_BAR_RANGE = 220;
+/** How close the comet has to be before its bar shows. */
+const COMET_BAR_RANGE = 440;
 /** Only rocks this close to the player are pushed to the scene: the client's "in view" set a server would stream. */
 const ROCK_VIEW_RADIUS = 340;
 const ROCK_CHIP_COLOUR = '#9a8f80';
@@ -114,6 +115,7 @@ export class FlightSession {
     this.sim = new WorldSim(map);
     this.scene = new GameScene(container, { seed: map.seed, halfExtent: map.halfExtent, boundaryColour: options.player.colours.trim, scenery: map.scenery });
     this.scene.setBeacons(map.beacons);
+    this.scene.setHazards(map.hazards);
     const labelRoot = document.createElement('div');
     labelRoot.className = 'flight-labels';
     const hudRoot = document.createElement('div');
@@ -277,6 +279,8 @@ export class FlightSession {
     this.scene.syncRocks(this.sim.rocks.inView(player.state.x, player.state.z, ROCK_VIEW_RADIUS), this.hovered?.kind === 'rock' ? this.hovered.rockId : null);
     this.scene.syncLoot(this.sim.loot.pickups);
     this.scene.syncComet(this.sim.comet, this.hovered?.kind === 'comet');
+    this.scene.setHazardHovered(this.hovered?.kind === 'hazard' ? this.hovered.hazard.id : null);
+    this.scene.setHazardFocus(player.alive ? { x: player.state.x, z: player.state.z, radius: player.spec.radius * 2.4 } : null);
     this.scene.syncHealthBars(this.healthBars(player));
 
     // Charge glows on the player's beam muzzles.
@@ -296,10 +300,13 @@ export class FlightSession {
   private healthBars(player: ShipEntity): BarEntry[] {
     const entries: BarEntry[] = [];
     const comet = this.sim.comet;
-    if (comet.alive && Math.hypot(comet.x - player.state.x, comet.z - player.state.z) < ROCK_BAR_RANGE * 2) {
+    if (comet.alive && Math.hypot(comet.x - player.state.x, comet.z - player.state.z) < COMET_BAR_RANGE) {
       entries.push({ x: comet.x, y: comet.radius + 2.2, z: comet.z, width: 12, height: 0.7, fraction: comet.hp / comet.maxHp, colour: COMET_ACCENT });
     }
-    for (const rock of this.sim.rocks.overlapping(player.state.x, player.state.z, ROCK_BAR_RANGE)) {
+    // Only damaged rocks carry a bar. That is a property of the rock's shared
+    // state (hp below max), so every client with the rock in view shows it,
+    // whoever did the shooting, and it goes away when the rock respawns.
+    for (const rock of this.sim.rocks.damagedInView(player.state.x, player.state.z, ROCK_VIEW_RADIUS)) {
       entries.push({
         x: rock.x,
         y: rockTop(rock) + 0.9 + rock.radius * 0.15,
@@ -355,8 +362,11 @@ export class FlightSession {
       pixelLevel: this.scene.pixelLevel,
       pixelScope: this.scene.pixelScope,
       beacons: this.sim.beacons.beacons,
+      hazards: this.sim.hazards.hazards,
       comet: comet.alive ? comet : null,
     });
+    const inside = player.alive ? this.sim.hazards.insideFor(PLAYER_ID)[0] : undefined;
+    this.hud.setHazardWarning(inside ? { label: inside.label, damagePerSecond: inside.damagePerSecond, colour: inside.colour } : null);
   }
 
   private warpMessage(player: ShipEntity): string | null {
@@ -491,6 +501,15 @@ export class FlightSession {
         this.scene.shockwave(event.beacon.x, event.beacon.z, event.beacon.radius * 1.6, event.beacon.colour);
         if (event.shipId === PLAYER_ID) this.message = { text: `Reached ${event.beacon.label}`, until: now + 3 };
         return;
+      case 'hazard-entered':
+        if (event.shipId === PLAYER_ID) this.message = { text: `Entering ${event.hazard.label}`, until: now + 1.8 };
+        return;
+      case 'hazard-left':
+        return;
+      case 'hazard-damage':
+        this.hitMarkers.spawn(event.x, 1.2, event.z, formatHit(event.amount), event.shipId === PLAYER_ID ? 'incoming' : 'hull', 'normal');
+        this.scene.burst(event.x, event.z, 3, 4, event.hazard.colour);
+        return;
     }
   }
 
@@ -538,6 +557,16 @@ export class FlightSession {
         x: pointerPx.x,
         y: pointerPx.y,
         accent: COMET_ACCENT,
+      };
+    }
+    if (pick.kind === 'hazard') {
+      const { hazard } = pick;
+      return {
+        title: hazard.label,
+        lines: [`gas cloud · ${hazard.damagePerSecond} damage/s inside`, `radius ${hazard.radius.toFixed(0)} · shields soak it first`],
+        x: pointerPx.x,
+        y: pointerPx.y,
+        accent: hazard.colour,
       };
     }
     const rock = this.sim.rocks.get(pick.rockId);

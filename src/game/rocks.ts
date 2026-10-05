@@ -87,6 +87,11 @@ export function rockFromSpec(spec: RockSpec): Rock {
 
 export const DEFAULT_ROCK_RESPAWN = 120;
 
+/** True once a rock has lost any health; an untouched or freshly respawned rock is not damaged. */
+export function isDamaged(rock: { readonly hp: number; readonly maxHp: number }): boolean {
+  return rock.hp < rock.maxHp;
+}
+
 export interface RockClusterSpec {
   readonly x: number;
   readonly z: number;
@@ -297,6 +302,15 @@ export class RockField {
   /** Alive rocks within a radius of a point: what a server would send a player at that point. */
   inView(x: number, z: number, radius: number): Rock[] {
     return this.overlapping(x, z, radius);
+  }
+
+  /**
+   * Alive rocks in view that have taken damage. Whether a rock shows a health
+   * bar is decided by this shared state alone, not by who shot it, so every
+   * player with the rock in view sees the same bar at the same moment.
+   */
+  damagedInView(x: number, z: number, radius: number): Rock[] {
+    return this.inView(x, z, radius).filter(isDamaged);
   }
 
   snapshot(x: number, z: number, radius: number): RockSnapshot[] {

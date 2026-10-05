@@ -1,4 +1,5 @@
 import type { Beacon } from './beacons';
+import type { Hazard } from './hazards';
 import type { BeamState } from './beam';
 import type { Vitals } from './combat';
 import type { ShipController } from './controllers';
@@ -68,4 +69,5 @@ export type Pick =
   | { readonly kind: 'rock'; readonly rockId: string }
   | { readonly kind: 'comet' }
   | { readonly kind: 'beacon'; readonly beacon: Beacon }
+  | { readonly kind: 'hazard'; readonly hazard: Hazard }
   | null;

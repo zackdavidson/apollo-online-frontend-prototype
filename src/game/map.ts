@@ -1,4 +1,5 @@
 import type { Beacon } from './beacons';
+import type { Hazard } from './hazards';
 import { COMET_TUNING, type CometTuning } from './comet';
 import type { ResourceKind } from './loot';
 import { fromMapCoords } from './mapCoords';
@@ -117,7 +118,20 @@ export type MapObject =
       readonly description: string;
       readonly colour: string;
       readonly radius: number;
+    }
+  | {
+      /** A cloud that damages any ship inside its radius, every half second, for as long as it stays. */
+      readonly type: 'gas-cloud';
+      readonly id: string;
+      readonly x: number;
+      readonly y: number;
+      readonly radius: number;
+      readonly damagePerSecond: number;
+      readonly label: string;
+      readonly colour: string;
     };
+
+export const GAS_CLOUD_DEFAULTS = { radius: 60, damagePerSecond: 10, label: 'Toxic gas', colour: '#9bff3d' } as const;
 
 export interface MapComet extends CometTuning {
   readonly enabled: boolean;
@@ -189,7 +203,61 @@ const STARTER_ROCKS: readonly MapRock[] = generateMapRocks(
   STARTER_SPAWN,
 );
 
-/** The sector the prototype has always started in, written out as data. */
+/**
+ * The map the hangar starts in: a 500 by 500 proving ground you can cross
+ * in seconds, with a dozen hand-placed rocks, one gas cloud, a cache and a
+ * marker beacon. Everything is explicit; the bottom-left corner is left
+ * clear because that is where the hangar parks the raider.
+ */
+export function provingGroundMapDefinition(): MapDefinition {
+  const respawn = 60;
+  const rock = (id: string, x: number, y: number, kind: RockKind, radius: number): MapRock => ({ id, x, y, kind, radius, respawn });
+  return parseMapDefinition({
+    name: 'Proving Ground',
+    size: 500,
+    seed: 7,
+    spawn: { x: 250, y: 250, heading: 0 },
+    scenery: {
+      planets: [
+        { art: 'planet-gas-02', x: 80, y: 440, depth: -2000, radius: 260, rotation: 0.4 },
+        { art: 'moon-01', x: 410, y: 110, depth: -1700, radius: 60, rotation: 0 },
+      ],
+      sun: { x: -600, y: 700, depth: -7000, size: 5000 },
+      nebulae: [{ art: 'nebula-02', x: 320, y: 280, depth: -6000, size: 6000, tint: '#2a5a8c', opacity: 0.45, rotation: 0.8 }],
+      band: null,
+    },
+    rocks: [
+      // North-east cluster.
+      rock('ne-1', 330, 330, 'stone', 3),
+      rock('ne-2', 352, 318, 'stone', 2.2),
+      rock('ne-3', 345, 350, 'iron', 4),
+      rock('ne-4', 372, 338, 'iron', 3),
+      rock('ne-5', 360, 372, 'stone', 2.6),
+      rock('ne-6', 338, 368, 'crystal', 2.4),
+      // Ice to the west.
+      rock('w-1', 110, 250, 'ice', 3.5),
+      rock('w-2', 128, 275, 'ice', 2.6),
+      rock('w-3', 95, 230, 'ice', 2.2),
+      // South.
+      rock('s-1', 260, 120, 'iron', 4.5),
+      rock('s-2', 300, 105, 'stone', 2.5),
+      rock('s-3', 320, 140, 'crystal', 3),
+      // East and north.
+      rock('e-1', 420, 250, 'stone', 3),
+      rock('e-2', 440, 280, 'ice', 2.5),
+      rock('n-1', 210, 420, 'stone', 2.8),
+      { id: 'giant', x: 430, y: 110, kind: 'giant', radius: 10, respawn: null },
+    ],
+    comet: null,
+    objects: [
+      { type: 'gas-cloud', id: 'drift', x: 150, y: 390, radius: 45, damagePerSecond: 10 },
+      { type: 'cache', x: 420, y: 430, resource: 'crystal', count: 4 },
+      { type: 'beacon', id: 'north-marker', x: 250, y: 460, label: 'North Marker', description: 'Top of the proving ground', radius: 12 },
+    ],
+  });
+}
+
+/** The big 10,000 by 10,000 sector the prototype grew up in; also the source of parser defaults. */
 export function defaultMapDefinition(): MapDefinition {
   return {
     version: 1,
@@ -221,7 +289,11 @@ export function defaultMapDefinition(): MapDefinition {
     },
     rocks: STARTER_ROCKS,
     comet: { ...COMET_TUNING, enabled: true, firstNearStart: true },
-    objects: [],
+    objects: [
+      // Two hazards within easy reach of the spawn: a wide, slow-burning toxic cloud and a small, vicious ion haze.
+      { type: 'gas-cloud', id: 'spore-drift', x: 4620, y: 5260, radius: 120, damagePerSecond: 10, label: 'Toxic gas', colour: '#9bff3d' },
+      { type: 'gas-cloud', id: 'ion-haze', x: 5380, y: 4560, radius: 80, damagePerSecond: 18, label: 'Ion haze', colour: '#c76bff' },
+    ],
   };
 }
 
@@ -492,8 +564,19 @@ export function parseMapDefinition(input: unknown): MapDefinition {
           colour: str(r['colour'], `${p}.colour`, '#6fd3ff'),
           radius: num(r['radius'], `${p}.radius`, 12),
         };
+      case 'gas-cloud':
+        return {
+          type: 'gas-cloud',
+          id: str(r['id'], `${p}.id`, `gas-${i}`),
+          x,
+          y,
+          radius: num(r['radius'], `${p}.radius`, GAS_CLOUD_DEFAULTS.radius),
+          damagePerSecond: num(r['damagePerSecond'], `${p}.damagePerSecond`, GAS_CLOUD_DEFAULTS.damagePerSecond),
+          label: str(r['label'], `${p}.label`, GAS_CLOUD_DEFAULTS.label),
+          colour: str(r['colour'], `${p}.colour`, GAS_CLOUD_DEFAULTS.colour),
+        };
       default:
-        throw new MapParseError(`${p}.type`, 'expected "cache" or "beacon" (rocks go in map.rocks)');
+        throw new MapParseError(`${p}.type`, 'expected "cache", "beacon" or "gas-cloud" (rocks go in map.rocks)');
     }
   });
 
@@ -557,6 +640,7 @@ export interface ResolvedMap {
   readonly rockSpecs: readonly RockSpec[];
   readonly comet: { readonly enabled: boolean; readonly firstNearStart: boolean; readonly tuning: CometTuning };
   readonly beacons: readonly Beacon[];
+  readonly hazards: readonly Hazard[];
   readonly caches: readonly ResolvedCache[];
 }
 
@@ -583,6 +667,9 @@ export function resolveMap(def: MapDefinition): ResolvedMap {
     comet: { enabled, firstNearStart, tuning },
     beacons: def.objects.flatMap((o) =>
       o.type === 'beacon' ? [{ id: o.id, ...w(o.x, o.y), label: o.label, description: o.description, colour: o.colour, radius: o.radius }] : [],
+    ),
+    hazards: def.objects.flatMap((o) =>
+      o.type === 'gas-cloud' ? [{ id: o.id, kind: 'gas' as const, ...w(o.x, o.y), radius: o.radius, label: o.label, colour: o.colour, damagePerSecond: o.damagePerSecond }] : [],
     ),
     caches: def.objects.flatMap((o) => (o.type === 'cache' ? [{ ...w(o.x, o.y), resource: o.resource, count: o.count }] : [])),
   };

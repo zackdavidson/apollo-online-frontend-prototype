@@ -388,8 +388,9 @@ body[data-mode='flight'] .flight {
 
 .hud-minimap {
   display: block;
-  width: 200px;
-  height: 200px;
+  width: 220px;
+  height: 220px;
+  border-radius: 6px;
   pointer-events: auto;
   cursor: crosshair;
 }
@@ -550,6 +551,40 @@ body[data-mode='flight'] .flight {
 .hud select {
   pointer-events: auto;
   padding: 6px 8px;
+}
+
+.hazard-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 42%, var(--hazard-colour, #9bff3d) 100%);
+  mix-blend-mode: screen;
+}
+
+.hazard-vignette.active {
+  animation: hazard-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes hazard-pulse {
+  0%,
+  100% {
+    opacity: 0.32;
+  }
+  50% {
+    opacity: 0.58;
+  }
+}
+
+.hud-hazard {
+  top: 134px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
 }
 
 .hud-tooltip {

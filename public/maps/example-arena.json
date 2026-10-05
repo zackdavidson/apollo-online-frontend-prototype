@@ -1461,6 +1461,16 @@
       "y": 700,
       "resource": "iron",
       "count": 12
+    },
+    {
+      "type": "gas-cloud",
+      "id": "west-cloud",
+      "x": 1250,
+      "y": 2000,
+      "radius": 140,
+      "damagePerSecond": 12,
+      "label": "Toxic gas",
+      "colour": "#9bff3d"
     }
   ]
 }

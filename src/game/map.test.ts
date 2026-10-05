@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GameEvent } from './events';
-import { MapParseError, defaultMapDefinition, generateMapRocks, parseMapDefinition, resolveMap } from './map';
+import { MapParseError, defaultMapDefinition, generateMapRocks, parseMapDefinition, provingGroundMapDefinition, resolveMap } from './map';
 import { RockField } from './rocks';
 import { WorldSim } from './simulation';
 import { WEAPON_PROFILES } from './weapons';
@@ -71,6 +71,21 @@ describe('parseMapDefinition', () => {
     }
   });
 
+  it('reads gas clouds with defaults and resolves them into world-space hazards', () => {
+    const parsed = parseMapDefinition({ size: 4000, objects: [{ type: 'gas-cloud', x: 1000, y: 3000 }, { type: 'gas-cloud', id: 'acid', x: 2000, y: 2000, radius: 90, damagePerSecond: 25, label: 'Acid cloud', colour: '#ff0' }] });
+    expect(parsed.objects).toEqual([
+      { type: 'gas-cloud', id: 'gas-0', x: 1000, y: 3000, radius: 60, damagePerSecond: 10, label: 'Toxic gas', colour: '#9bff3d' },
+      { type: 'gas-cloud', id: 'acid', x: 2000, y: 2000, radius: 90, damagePerSecond: 25, label: 'Acid cloud', colour: '#ff0' },
+    ]);
+    const resolved = resolveMap(parsed);
+    expect(resolved.hazards).toEqual([
+      { id: 'gas-0', kind: 'gas', x: 1000, z: 1000, radius: 60, label: 'Toxic gas', colour: '#9bff3d', damagePerSecond: 10 },
+      { id: 'acid', kind: 'gas', x: 0, z: 0, radius: 90, label: 'Acid cloud', colour: '#ff0', damagePerSecond: 25 },
+    ]);
+    expect(resolveMap(defaultMapDefinition()).hazards.length).toBeGreaterThan(0);
+    expect(() => parseMapDefinition({ objects: [{ type: 'gas-cloud', x: 1, y: 1, radius: 'big' }] })).toThrow(/map\.objects\[0\]\.radius/);
+  });
+
   it('rejects bad input with the offending path', () => {
     expect(() => parseMapDefinition(null)).toThrow(MapParseError);
     expect(() => parseMapDefinition({ size: 'big' })).toThrow(/map\.size/);
@@ -81,6 +96,32 @@ describe('parseMapDefinition', () => {
     expect(() => parseMapDefinition({ objects: [{ type: 'cache', x: 1, y: 1, resource: 'gold' }] })).toThrow(/resource/);
     expect(() => parseMapDefinition({ scenery: { planets: [{ x: 1, y: 2 }] } })).toThrow(/planets\[0\]\.art/);
     expect(() => parseMapDefinition({ version: 2 })).toThrow(/version/);
+  });
+});
+
+describe('provingGroundMapDefinition', () => {
+  it('is a small explicit map with a clear spawn and a clear bottom-left corner for the raider', () => {
+    const map = provingGroundMapDefinition();
+    expect(map.size).toBe(500);
+    expect(map.spawn).toEqual({ x: 250, y: 250, heading: 0 });
+    expect(parseMapDefinition(JSON.parse(JSON.stringify(map)))).toEqual(map);
+    expect(map.rocks.length).toBeGreaterThanOrEqual(12);
+    expect(new Set(map.rocks.map((r) => r.id)).size).toBe(map.rocks.length);
+    for (const rock of map.rocks) {
+      expect(rock.x).toBeGreaterThan(0);
+      expect(rock.x).toBeLessThan(500);
+      expect(rock.y).toBeGreaterThan(0);
+      expect(rock.y).toBeLessThan(500);
+      expect(Math.hypot(rock.x - 250, rock.y - 250)).toBeGreaterThan(30);
+      expect(Math.hypot(rock.x - 60, rock.y - 60)).toBeGreaterThan(60);
+    }
+    expect(map.comet.enabled).toBe(false);
+    expect(map.objects.filter((o) => o.type === 'gas-cloud')).toHaveLength(1);
+    const resolved = resolveMap(map);
+    expect(resolved.halfExtent).toBe(250);
+    expect(resolved.hazards[0]).toMatchObject({ id: 'drift', radius: 45 });
+    const sim = new WorldSim(resolved);
+    expect(sim.rocks.rocks.length).toBe(map.rocks.length);
   });
 });
 
@@ -132,6 +173,49 @@ describe('WorldSim from a map', () => {
     expect(sim.getShip('p')!.cargo.crystal).toBe(4);
     expect(sim.comet.alive).toBe(false);
     expect(sim.pick(resolved.beacons[0]!.x, resolved.beacons[0]!.z)).toMatchObject({ kind: 'beacon' });
+  });
+
+  it('hurts a ship for as long as it sits in a gas cloud, shields first, and stops when it leaves', () => {
+    const resolved = resolveMap(parseMapDefinition({ size: 4000, spawn: { x: 2000, y: 2000 }, rocks: [], comet: null, objects: [{ type: 'gas-cloud', id: 'cloud', x: 2000, y: 2000, radius: 40, damagePerSecond: 10 }] }));
+    const sim = new WorldSim(resolved);
+    expect(sim.pick(resolved.spawn.x + 30, resolved.spawn.z)).toMatchObject({ kind: 'hazard', hazard: { id: 'cloud' } });
+    expect(sim.pick(resolved.spawn.x + 50, resolved.spawn.z)).toBeNull();
+    sim.addShip({ id: 'p', name: 'P', hullName: 'h', team: 't', radius: 3, weaponMounts: [], maxShield: 20, maxHull: 100, spawn: resolved.spawn, respawnDelay: 1 });
+    const events: GameEvent[] = [];
+    for (let t = 0; t < 1.05; t += 1 / 60) events.push(...sim.step(1 / 60));
+    expect(events.filter((e) => e.type === 'hazard-entered')).toHaveLength(1);
+    const ticks = events.filter((e) => e.type === 'hazard-damage');
+    expect(ticks.length).toBeGreaterThanOrEqual(2);
+    expect(ticks.every((e) => e.type === 'hazard-damage' && e.amount === 5 && e.shipId === 'p')).toBe(true);
+    const ship = sim.getShip('p')!;
+    expect(ship.vitals.shield).toBe(20 - 5 * ticks.length);
+    expect(ship.vitals.hull).toBe(100);
+    expect(sim.hazards.insideFor('p').map((h) => h.id)).toEqual(['cloud']);
+    // Fly out: the ticks stop and hazard-left fires once.
+    sim.setInput('p', { thrust: 1, strafe: 0, boost: true, aim: null, fire: false });
+    const later: GameEvent[] = [];
+    for (let t = 0; t < 4; t += 1 / 60) later.push(...sim.step(1 / 60));
+    expect(later.filter((e) => e.type === 'hazard-left')).toHaveLength(1);
+    expect(sim.hazards.insideFor('p')).toEqual([]);
+    const hullAfter = sim.getShip('p')!.vitals.hull;
+    const more: GameEvent[] = [];
+    for (let t = 0; t < 1; t += 1 / 60) more.push(...sim.step(1 / 60));
+    expect(more.filter((e) => e.type === 'hazard-damage')).toHaveLength(0);
+    expect(sim.getShip('p')!.vitals.hull).toBe(hullAfter);
+  });
+
+  it('kills a ship that stays in a cloud with no attacker credited, and re-enters when it respawns inside', () => {
+    const resolved = resolveMap(parseMapDefinition({ size: 4000, spawn: { x: 2000, y: 2000 }, rocks: [], comet: null, objects: [{ type: 'gas-cloud', id: 'cloud', x: 2000, y: 2000, radius: 40, damagePerSecond: 40 }] }));
+    const sim = new WorldSim(resolved);
+    sim.addShip({ id: 'p', name: 'P', hullName: 'h', team: 't', radius: 3, weaponMounts: [], maxShield: 10, maxHull: 30, spawn: resolved.spawn, respawnDelay: 1 });
+    const events: GameEvent[] = [];
+    for (let t = 0; t < 3; t += 1 / 60) events.push(...sim.step(1 / 60));
+    const deaths = events.filter((e) => e.type === 'ship-destroyed');
+    expect(deaths.length).toBeGreaterThanOrEqual(1);
+    expect(deaths[0]).toMatchObject({ type: 'ship-destroyed', shipId: 'p', byShipId: null });
+    // Dead ships are not inside anything; the respawn lands back in the cloud and fires entered again.
+    expect(events.filter((e) => e.type === 'hazard-entered').length).toBeGreaterThanOrEqual(2);
+    expect(events.filter((e) => e.type === 'hazard-left')).toHaveLength(0);
   });
 
   it('mines a rock out, reports it by id, and brings it back after its respawn delay', () => {

@@ -92,9 +92,13 @@ coordinates ((0, 0) bottom-left, x right, y up, both `0..size`). Load one
 with `?map=name` (fetches `public/maps/name.json`), with the hangar's "Load
 map JSON" button, or pass a parsed definition to `FlightSession` as `map`.
 Every section is optional and falls back to the starter sector; wrong types
-fail with a path like `map.objects[2].kind`. "Save default as JSON" in the
-hangar writes the starter sector out as a starting point, and
-`public/maps/example-arena.json` is a small hand-made map.
+fail with a path like `map.objects[2].kind`. The hangar starts in the
+**Proving Ground**, a 500 by 500 map with a dozen hand-placed rocks, one gas
+cloud, a cache and a marker beacon (`provingGroundMapDefinition`); the raider
+waits in its bottom-left corner. The big 10,000 by 10,000 **Starter Sector**
+is `?map=starter-sector`, and `public/maps/example-arena.json` is a small
+hand-made arena. "Save map as JSON" in the hangar writes whichever map will
+fly next.
 
 ```jsonc
 {
@@ -121,7 +125,9 @@ hangar writes the starter sector out as a starting point, and
   "objects": [
     { "type": "cache",  "x": 2000, "y": 2080, "resource": "crystal", "count": 6 },  // permanent pickups
     { "type": "beacon", "id": "north-gate", "x": 2000, "y": 3600, "label": "North Gate",
-      "description": "Checkpoint one", "colour": "#6fd3ff", "radius": 14 }           // fires beacon-reached
+      "description": "Checkpoint one", "colour": "#6fd3ff", "radius": 14 },          // fires beacon-reached
+    { "type": "gas-cloud", "id": "west-cloud", "x": 1250, "y": 2000, "radius": 140,
+      "damagePerSecond": 12, "label": "Toxic gas", "colour": "#9bff3d" }             // hurts anything inside
   ]
 }
 ```
@@ -132,6 +138,22 @@ means slower parallax. `resolveMap` converts to world coordinates and the
 same `ResolvedMap` feeds both `WorldSim` (rocks, caches, beacons, comet) and
 `GameScene` (scenery). NPCs are deliberately not part of a map; they are
 spawned through `FlightSession.spawnNpc` so a server can own them.
+
+#### Gas clouds (area hazards)
+
+A `gas-cloud` object is a circle that damages every ship inside it: a tick
+of `damagePerSecond / 2` every half second, the first one the moment you
+cross the radius, shields soaking it before hull. Defaults: radius 60, 10
+damage a second, label "Toxic gas", acid-green colour; `id` defaults to
+`gas-<index>`. The logic is `HazardTracker` in `src/game/hazards.ts`, which
+only remembers which ship is in which cloud and when it next hurts, so a
+server runs it as-is and sends `hazard-entered`, `hazard-left` and
+`hazard-damage` (all carrying the hazard id) to the players concerned. A
+ship that dies inside counts as having left, so respawning in a cloud fires
+`hazard-entered` again. Clouds are drawn from the map alone, so nothing about
+them is streamed. The Proving Ground has one north-west of the spawn; the
+Starter Sector has a wide toxic cloud north-west of its spawn and a small,
+nastier ion haze to the south-east.
 
 #### Rocks are records, not clusters
 
@@ -178,7 +200,13 @@ static list, which a client can download once with the map.
 - Rocks need no per-tick traffic: the client has the static list from the
   map, and the server sends `RockSnapshot`s (id, position, health) for rocks
   entering a player's interest radius, plus `rock-damaged`, `rock-destroyed`
-  and `rock-respawned` events for ones already in view.
+  and `rock-respawned` events for ones already in view. Each carries the
+  rock's id, which is how a client knows *which* rock to update.
+- Health bars follow from that state, not from who fired. A rock shows a bar
+  exactly when `hp < maxHp` (`isDamaged`, `RockField.damagedInView`), so when
+  one player starts mining a rock, every player with it in view gets the
+  same `rock-damaged` and shows the bar at the same moment; nothing extra
+  has to be sent.
 - Clients run `GameScene` + HUD from snapshots. `FlightSession` already
   separates "apply events" from "push state", so a `NetworkSession` can
   replace the local `WorldSim` with a snapshot stream and keep everything
@@ -235,9 +263,11 @@ static list, which a client can download once with the map.
   vertical by default so the ship reads as 2.5D. The orthographic camera
   shares the same rig and framing for a fair comparison. North (map +y) is
   always up the screen.
-- **Minimap.** A round compass dial with N/E/S/W around the rim and the map
-  square inscribed in it, north at the top. The readout shows your heading
-  as a compass bearing.
+- **Minimap.** A square minimap in the bottom-right corner: the whole map
+  fits the square, north up, with a faint four-by-four grid, N/E/S/W in the
+  margins, rocks as dots, planets, gas clouds as translucent discs, beacons
+  as diamonds, enemies in red, the comet with its heading, and your ship as
+  a white dot with a heading tick. Clicking inside the square warps there.
 - **Map.** 10,000 x 10,000 units, bounded by a line square. Depth order is
   physical: rocks on the plane, then planets (2,000 to 2,800 down), then four
   starfields (3,200 to 5,200 down: a dense faint field, clustered clumps, a
@@ -271,8 +301,9 @@ static list, which a client can download once with the map.
   never). Only rocks within 340 units of the player are drawn, the same set
   a server would stream. Each has a health pool in damage
   points (roughly 10 + 12 per unit of radius, times the kind's toughness;
-  giants into the hundreds), shown as a small billboard bar above every rock
-  near the ship. Hovering a rock outlines it and shows a tooltip with its
+  giants into the hundreds). An untouched rock shows no bar; once a rock has
+  lost any health a small billboard bar appears above it and stays until the
+  rock is mined out or respawns whole. Hovering a rock outlines it and shows a tooltip with its
   kind, size, health and drops; hovering the enemy does the same for it.
   Breaking a rock scatters resource pickups: ore, iron, ice or crystal,
   scaled by the rock's size. Pickups drift, get pulled in within 16 units of
@@ -282,6 +313,21 @@ static list, which a client can download once with the map.
   Flying into a rock stops the ship against it (and costs hull above a
   modest speed) rather than bouncing. Logic in `flight/rocks.ts` and
   `flight/loot.ts`; bars in `flight/healthBars.ts`.
+- **Gas clouds.** Map-placed hazards drawn like the backdrop nebulae: the
+  same wispy nebula PNGs, tinted in the cloud's colour, laid flat on the
+  ship plane in five offset, rotated, slightly stretched layers (a dark base
+  that dims the stars, two coloured bodies, a faint additive glow and an
+  outer wisp layer), plus a sparse dust of dim motes. There is no outline
+  and no ring: the damage circle is invisible, and the dense middle of the
+  cloud roughly marks it (the tooltip gives the exact radius). The layers
+  turn a few degrees a minute and breathe a few percent, so a cloud reads
+  as still. Fly in and you take a tick of damage every half second, shields
+  first; the HUD shows a pulsing edge glow in the cloud's colour and a
+  warning line with the damage rate, hits show as incoming markers, and the
+  minimap marks each cloud as a translucent disc. The gas thins to a quarter
+  around the player's own ship so it stays readable inside. Clouds sit on
+  the overlay layer with the health bars, so pixelation never touches them.
+  Logic in `game/hazards.ts`, visuals in `scene/hazardRenderer.ts`.
 - **The comet.** One shooting star crosses the map at a time: a glowing icy
   head with a long particle tail, about 2,400 health, moving at 14 units a
   second (well under your top speed) on a straight line. It shows on the

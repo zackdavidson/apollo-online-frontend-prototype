@@ -1,4 +1,5 @@
 import { BeaconTracker } from './beacons';
+import { HazardTracker } from './hazards';
 import { INITIAL_BEAM_STATE, addBeamShots, beamReadout, rayCircle, stepBeam, type BeamPhase, type BeamShot } from './beam';
 import { applyDamage, circleHit, collisionDamage, createVitals, regenerateShield } from './combat';
 import { chunkResource, cometCollideShip, damageComet, spawnComet, stepComet, type CometState, type CometTuning } from './comet';
@@ -41,6 +42,7 @@ export class WorldSim implements ControllerView {
   readonly rocks: RockField;
   readonly loot: LootField;
   readonly beacons: BeaconTracker;
+  readonly hazards: HazardTracker;
   comet: CometState;
   /** Simulation time in seconds. */
   time = 0;
@@ -62,6 +64,7 @@ export class WorldSim implements ControllerView {
     this.loot = new LootField(createRng(map.seed + 4));
     for (const cache of map.caches) this.loot.spawn(cache.x, cache.z, cache.resource, cache.count, Infinity);
     this.beacons = new BeaconTracker(map.beacons);
+    this.hazards = new HazardTracker(map.hazards);
     this.cometRng = createRng(map.seed + 5);
     this.damageRng = createRng(map.seed + 8);
     this.dropRng = createRng(map.seed + 1);
@@ -176,7 +179,7 @@ export class WorldSim implements ControllerView {
     });
   }
 
-  /** What sits under a world point: the comet, a living ship, a beacon, or a rock. */
+  /** What sits under a world point: the comet, a living ship, a beacon, a rock, or a hazard. */
   pick(x: number, z: number): Pick {
     if (this.comet.alive && circleHit(x, z, this.comet.x, this.comet.z, this.comet.radius * 1.2)) return { kind: 'comet' };
     for (const ship of this.ships.values()) {
@@ -185,7 +188,9 @@ export class WorldSim implements ControllerView {
     const beacon = this.beacons.at(x, z);
     if (beacon) return { kind: 'beacon', beacon };
     const rock = this.rocks.hoverAt(x, z);
-    return rock ? { kind: 'rock', rockId: rock.id } : null;
+    if (rock) return { kind: 'rock', rockId: rock.id };
+    const hazard = this.hazards.at(x, z);
+    return hazard ? { kind: 'hazard', hazard } : null;
   }
 
   // ---- stepping ------------------------------------------------------------
@@ -233,6 +238,7 @@ export class WorldSim implements ControllerView {
           events.push({ type: 'pickup-collected', shipId: ship.spec.id, kind, count });
         }
       }
+      this.stepHazards(ship, now, events);
       ship.vitals = regenerateShield(ship.vitals, dt, now);
     }
     if (![...this.ships.values()].some((ship) => ship.spec.collectsLoot && ship.alive && !ship.warp)) this.loot.step(dt, null);
@@ -420,6 +426,20 @@ export class WorldSim implements ControllerView {
   }
 
   /** Apply damage to a ship, handling shields, death and kill credit. */
+  /** Gas clouds and the like: entering, leaving, and the damage ticks while inside. */
+  private stepHazards(ship: ShipEntity, now: number, events: GameEvent[]): void {
+    const active = ship.alive && !ship.warp;
+    const update = this.hazards.update(ship.spec.id, ship.state.x, ship.state.z, now, active);
+    if (!active) return; // state cleared; a dead or warping ship neither enters nor leaves out loud
+    for (const hazard of update.entered) events.push({ type: 'hazard-entered', shipId: ship.spec.id, hazard });
+    for (const hazard of update.left) events.push({ type: 'hazard-left', shipId: ship.spec.id, hazard });
+    for (const tick of update.ticks) {
+      if (!ship.alive) break;
+      events.push({ type: 'hazard-damage', shipId: ship.spec.id, hazard: tick.hazard, amount: tick.amount, x: ship.state.x, z: ship.state.z });
+      this.hurt(ship, tick.amount, ship.state.x, ship.state.z, now, null, events);
+    }
+  }
+
   private hurt(ship: ShipEntity, amount: number, x: number, z: number, now: number, attacker: ShipEntity | null, events: GameEvent[]): ReturnType<typeof applyDamage> {
     const result = applyDamage(ship.vitals, amount, now);
     ship.vitals = result.vitals;

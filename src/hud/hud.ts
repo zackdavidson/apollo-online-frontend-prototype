@@ -1,7 +1,7 @@
 import { clear, el } from '../ui/dom';
 import type { CameraMode } from '../scene/cameraRig';
 import { RESOURCES, RESOURCE_KINDS, inventoryValue, type Inventory } from '../game/loot';
-import { fromMapCoords, headingBearing, rotateScreen, toMapCoords, worldVectorToMap } from '../game/mapCoords';
+import { fromMapCoords, headingBearing, toMapCoords, worldVectorToMap } from '../game/mapCoords';
 import { PIXEL_LEVELS, type PixelScope } from '../scene/pixelate';
 import type { WeaponGroup } from '../game/weapons';
 
@@ -39,6 +39,7 @@ export interface HudInfo {
   readonly pixelLevel: number;
   readonly pixelScope: PixelScope;
   readonly beacons: ReadonlyArray<{ readonly x: number; readonly z: number; readonly colour: string }>;
+  readonly hazards: ReadonlyArray<{ readonly x: number; readonly z: number; readonly radius: number; readonly colour: string }>;
   /** The shooting star while it is in the sector. */
   readonly comet: { readonly x: number; readonly z: number; readonly vx: number; readonly vz: number; readonly hp: number; readonly maxHp: number } | null;
 }
@@ -52,16 +53,12 @@ export interface HudActions {
   onTeleport(x: number, z: number): void;
 }
 
-const MINIMAP_SIZE = 200;
-const MINIMAP_PAD = 14;
-/** Side of the map square inscribed in the minimap circle, so it fits at any rotation. */
-const MAP_SIDE = (MINIMAP_SIZE - MINIMAP_PAD * 2) / Math.SQRT2;
-const COMPASS: ReadonlyArray<readonly [string, number]> = [
-  ['N', 0],
-  ['E', Math.PI / 2],
-  ['S', Math.PI],
-  ['W', (3 * Math.PI) / 2],
-];
+const MINIMAP_SIZE = 220;
+/** Margin band around the map square where the compass letters sit. */
+const MINIMAP_MARGIN = 16;
+/** Side of the map square; the whole map always fits, north up. */
+const MAP_SIDE = MINIMAP_SIZE - MINIMAP_MARGIN * 2;
+const MINIMAP_GRID = 4;
 
 /** DOM overlay for flight: readouts, camera toggle, controls hint and a minimap. */
 export class FlightHud {
@@ -69,6 +66,9 @@ export class FlightHud {
   private readonly cameraButton: HTMLButtonElement;
   private readonly minimap: HTMLCanvasElement;
   private readonly message: HTMLElement;
+  private readonly hazardVignette: HTMLElement;
+  private readonly hazardWarning: HTMLElement;
+  private hazardWarningText = '';
   private readonly tooltip: HTMLElement;
   private readonly cometArrow: HTMLElement;
   private readonly cometArrowLabel: HTMLElement;
@@ -98,20 +98,21 @@ export class FlightHud {
       const rect = this.minimap.getBoundingClientRect();
       const mx = ((event.clientX - rect.left) / rect.width) * MINIMAP_SIZE;
       const mz = ((event.clientY - rect.top) / rect.height) * MINIMAP_SIZE;
-      // Map the inscribed square to map coordinates (x grows right, y grows up,
-      // (0, 0) bottom-left). Clicks off the dial are ignored.
-      const centre = MINIMAP_SIZE / 2;
-      if (Math.hypot(mx - centre, mz - centre) > centre - 2) return;
-      const lx = mx - centre;
-      const ly = mz - centre;
-      const scale = MAP_SIDE / (2 * this.halfExtent);
-      const mapX = Math.max(0, Math.min(2 * this.halfExtent, this.halfExtent + lx / scale));
-      const mapY = Math.max(0, Math.min(2 * this.halfExtent, this.halfExtent - ly / scale));
+      // The map square maps straight onto map coordinates (x grows right, y
+      // grows up, (0, 0) bottom-left). Clicks in the margin are ignored.
+      const u = (mx - MINIMAP_MARGIN) / MAP_SIDE;
+      const v = (mz - MINIMAP_MARGIN) / MAP_SIDE;
+      if (u < 0 || u > 1 || v < 0 || v > 1) return;
+      const mapX = u * 2 * this.halfExtent;
+      const mapY = (1 - v) * 2 * this.halfExtent;
       const world = fromMapCoords(mapX, mapY, this.halfExtent);
       actions.onTeleport(world.x, world.z);
     });
     this.message = el('div', { className: 'hud hud-message' });
     this.message.style.display = 'none';
+    this.hazardVignette = el('div', { className: 'hazard-vignette' });
+    this.hazardWarning = el('div', { className: 'hud hud-hazard' });
+    this.hazardWarning.style.display = 'none';
     this.tooltip = el('div', { className: 'hud hud-tooltip' });
     this.tooltip.style.display = 'none';
     this.cometArrowLabel = el('span', { className: 'comet-arrow-label' });
@@ -121,7 +122,9 @@ export class FlightHud {
 
     clear(root);
     root.append(
+      this.hazardVignette,
       this.message,
+      this.hazardWarning,
       this.tooltip,
       this.cometArrow,
       this.weaponBar,
@@ -207,6 +210,27 @@ export class FlightHud {
   }
 
   /** Show a tooltip beside the pointer, or hide it when `tip` is null. */
+  /** Pulsing edge glow and a warning line while the player sits inside a hazard. */
+  setHazardWarning(warning: { readonly label: string; readonly damagePerSecond: number; readonly colour: string } | null): void {
+    if (!warning) {
+      if (this.hazardWarningText) {
+        this.hazardWarningText = '';
+        this.hazardVignette.classList.remove('active');
+        this.hazardWarning.style.display = 'none';
+      }
+      return;
+    }
+    const text = `⚠ ${warning.label} · ${warning.damagePerSecond} damage/s`;
+    if (text === this.hazardWarningText) return;
+    this.hazardWarningText = text;
+    this.hazardVignette.style.setProperty('--hazard-colour', warning.colour);
+    this.hazardVignette.classList.add('active');
+    this.hazardWarning.style.display = '';
+    this.hazardWarning.style.borderColor = warning.colour;
+    this.hazardWarning.style.color = warning.colour;
+    this.hazardWarning.textContent = text;
+  }
+
   setTooltip(tip: { readonly title: string; readonly lines: readonly string[]; readonly x: number; readonly y: number; readonly accent: string } | null): void {
     if (!tip) {
       this.tooltip.style.display = 'none';
@@ -250,11 +274,11 @@ export class FlightHud {
     const context = this.minimap.getContext('2d');
     if (!context) return;
     const size = MINIMAP_SIZE;
-    const centre = size / 2;
+    const origin = MINIMAP_MARGIN;
     const scale = MAP_SIDE / (2 * info.halfExtent);
     const toMap = (x: number, z: number): [number, number] => {
       const point = toMapCoords(x, z, info.halfExtent);
-      return [centre + (point.x - info.halfExtent) * scale, centre - (point.y - info.halfExtent) * scale];
+      return [origin + point.x * scale, origin + MAP_SIDE - point.y * scale];
     };
     const dir = (worldX: number, worldZ: number): readonly [number, number] => {
       const [mx, my] = worldVectorToMap(worldX, worldZ);
@@ -262,31 +286,53 @@ export class FlightHud {
     };
 
     context.clearRect(0, 0, size, size);
-    // Dial.
-    context.fillStyle = 'rgba(10, 12, 20, 0.72)';
-    context.beginPath();
-    context.arc(centre, centre, centre - 1, 0, Math.PI * 2);
+    // Panel.
+    context.fillStyle = 'rgba(10, 12, 20, 0.78)';
+    roundedRect(context, 0.5, 0.5, size - 1, size - 1, 6);
     context.fill();
-    context.strokeStyle = 'rgba(140, 150, 170, 0.5)';
+    context.strokeStyle = 'rgba(140, 150, 170, 0.45)';
     context.lineWidth = 1;
     context.stroke();
-    // Map square inscribed in the dial.
+    // Map square with a faint grid.
+    context.fillStyle = 'rgba(18, 24, 38, 0.6)';
+    context.fillRect(origin, origin, MAP_SIDE, MAP_SIDE);
+    context.strokeStyle = 'rgba(120, 140, 170, 0.14)';
+    for (let i = 1; i < MINIMAP_GRID; i++) {
+      const at = origin + (MAP_SIDE * i) / MINIMAP_GRID + 0.5;
+      context.beginPath();
+      context.moveTo(at, origin);
+      context.lineTo(at, origin + MAP_SIDE);
+      context.moveTo(origin, at);
+      context.lineTo(origin + MAP_SIDE, at);
+      context.stroke();
+    }
     context.strokeStyle = 'rgba(140, 150, 170, 0.7)';
-    context.strokeRect(centre - MAP_SIDE / 2 + 0.5, centre - MAP_SIDE / 2 + 0.5, MAP_SIDE - 1, MAP_SIDE - 1);
-    // Compass letters around the rim.
+    context.strokeRect(origin + 0.5, origin + 0.5, MAP_SIDE - 1, MAP_SIDE - 1);
+    // Compass letters in the margins.
     context.font = 'bold 11px system-ui, sans-serif';
     context.textAlign = 'center';
     context.textBaseline = 'middle';
-    for (const [letter, angle] of COMPASS) {
-      const [lx, ly] = rotateScreen(0, -(centre - 7), angle);
+    const mid = origin + MAP_SIDE / 2;
+    const letters: ReadonlyArray<readonly [string, number, number]> = [
+      ['N', mid, origin / 2],
+      ['S', mid, size - origin / 2],
+      ['W', origin / 2, mid],
+      ['E', size - origin / 2, mid],
+    ];
+    for (const [letter, lx, ly] of letters) {
       context.fillStyle = letter === 'N' ? '#6fd3ff' : 'rgba(200, 208, 220, 0.75)';
-      context.fillText(letter, centre + lx, centre + ly);
+      context.fillText(letter, lx, ly);
     }
 
-    context.fillStyle = 'rgba(150, 140, 130, 0.5)';
+    // Everything on the map is clipped to the square.
+    context.save();
+    context.beginPath();
+    context.rect(origin, origin, MAP_SIDE, MAP_SIDE);
+    context.clip();
+    context.fillStyle = 'rgba(160, 150, 140, 0.6)';
     for (const rock of info.rocks) {
       const [mx, mz] = toMap(rock.x, rock.z);
-      context.fillRect(mx, mz, 1, 1);
+      context.fillRect(mx - 0.5, mz - 0.5, 1.5, 1.5);
     }
     context.fillStyle = 'rgba(200, 180, 140, 0.8)';
     for (const [px, pz] of info.planets) {
@@ -294,6 +340,20 @@ export class FlightHud {
       context.beginPath();
       context.arc(mx, mz, 2.2, 0, Math.PI * 2);
       context.fill();
+    }
+    for (const hazard of info.hazards) {
+      const [hx, hz] = toMap(hazard.x, hazard.z);
+      const pr = Math.max(3, (hazard.radius / (2 * info.halfExtent)) * MAP_SIDE);
+      context.fillStyle = hazard.colour;
+      context.globalAlpha = 0.3;
+      context.beginPath();
+      context.arc(hx, hz, pr, 0, Math.PI * 2);
+      context.fill();
+      context.globalAlpha = 0.8;
+      context.lineWidth = 1;
+      context.strokeStyle = hazard.colour;
+      context.stroke();
+      context.globalAlpha = 1;
     }
     for (const beacon of info.beacons) {
       const [bx, bz] = toMap(beacon.x, beacon.z);
@@ -306,12 +366,17 @@ export class FlightHud {
       context.closePath();
       context.fill();
     }
-    context.fillStyle = '#ff5c5c';
     for (const enemy of info.enemies) {
       const [ex, ez] = toMap(enemy.x, enemy.z);
+      context.fillStyle = '#ff5c5c';
       context.beginPath();
       context.arc(ex, ez, 3, 0, Math.PI * 2);
       context.fill();
+      context.strokeStyle = 'rgba(255, 92, 92, 0.45)';
+      context.lineWidth = 1;
+      context.beginPath();
+      context.arc(ex, ez, 5.5, 0, Math.PI * 2);
+      context.stroke();
     }
     if (info.comet) {
       const [cx, cz] = toMap(info.comet.x, info.comet.z);
@@ -341,5 +406,20 @@ export class FlightHud {
     context.beginPath();
     context.arc(sx, sz, 2.5, 0, Math.PI * 2);
     context.fill();
+    context.restore();
   }
+}
+
+function roundedRect(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number): void {
+  context.beginPath();
+  context.moveTo(x + radius, y);
+  context.lineTo(x + width - radius, y);
+  context.quadraticCurveTo(x + width, y, x + width, y + radius);
+  context.lineTo(x + width, y + height - radius);
+  context.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  context.lineTo(x + radius, y + height);
+  context.quadraticCurveTo(x, y + height, x, y + height - radius);
+  context.lineTo(x, y + radius);
+  context.quadraticCurveTo(x, y, x + radius, y);
+  context.closePath();
 }

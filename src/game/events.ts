@@ -1,6 +1,7 @@
 import type { BeamShot } from './beam';
 import type { Beacon } from './beacons';
 import type { HitKind } from './damageRoll';
+import type { Hazard } from './hazards';
 import type { ResourceKind } from './loot';
 import type { Rock } from './rocks';
 import type { ShipId } from './world';
@@ -34,6 +35,10 @@ export type GameEvent =
   | { readonly type: 'rock-damaged'; readonly rock: Rock; readonly x: number; readonly z: number }
   | { readonly type: 'rock-destroyed'; readonly rock: Rock; readonly drops: Partial<Record<ResourceKind, number>> }
   | { readonly type: 'rock-respawned'; readonly rock: Rock }
+  | { readonly type: 'hazard-entered'; readonly shipId: ShipId; readonly hazard: Hazard }
+  | { readonly type: 'hazard-left'; readonly shipId: ShipId; readonly hazard: Hazard }
+  /** One damage tick from a hazard the ship is inside; `ship-damaged` follows with the shield / hull split. */
+  | { readonly type: 'hazard-damage'; readonly shipId: ShipId; readonly hazard: Hazard; readonly amount: number; readonly x: number; readonly z: number }
   | { readonly type: 'comet-damaged'; readonly x: number; readonly z: number }
   | { readonly type: 'comet-chunk'; readonly x: number; readonly z: number; readonly count: number }
   | { readonly type: 'comet-destroyed'; readonly x: number; readonly z: number; readonly radius: number }
