@@ -15,6 +15,7 @@ export function CargoTab() {
   const info = useHudInfo();
   const { itemIcons } = useServices<HudInfo, HudActions>();
   const icons = useStoreValue(itemIcons);
+  const { actions } = useServices<HudInfo, HudActions>();
   const held = RESOURCE_KINDS.filter((kind) => (info?.cargo[kind] ?? 0) > 0);
   return (
     <>
@@ -23,8 +24,19 @@ export function CargoTab() {
         {held.map((kind) => {
           const count = info?.cargo[kind] ?? 0;
           const icon = icons[kind];
+          const target = { kind: 'inventory', item: kind, count } as const;
           return (
-            <div key={kind} className="cargo-slot" title={`${RESOURCES[kind].label} × ${count}`} style={{ borderColor: RESOURCES[kind].colour }}>
+            <div
+              key={kind}
+              className="cargo-slot"
+              title={`${RESOURCES[kind].label} × ${count} · right-click for options`}
+              style={{ borderColor: RESOURCES[kind].colour }}
+              onClick={(event) => actions.onItemMenu(target, event.clientX, event.clientY, true)}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                actions.onItemMenu(target, event.clientX, event.clientY, false);
+              }}
+            >
               {icon ? <img className="cargo-icon" src={icon} alt="" draggable={false} /> : <span className="cargo-icon-fallback" style={{ background: RESOURCES[kind].colour }} />}
               <span className="cargo-badge">{count}</span>
               <span className="cargo-name" style={{ color: RESOURCES[kind].colour }}>
@@ -41,6 +53,8 @@ export function CargoTab() {
 
 export function ShipTab() {
   const info = useHudInfo();
+  const { actions, itemIcons } = useServices<HudInfo, HudActions>();
+  const icons = useStoreValue(itemIcons);
   if (!info) return null;
   const { ship } = info;
   return (
@@ -60,11 +74,29 @@ export function ShipTab() {
         hull {Math.ceil(ship.hull)} / {ship.maxHull}
       </div>
       <div className="inv-weapons">
-        {info.weapons.map((group) => (
-          <div key={group.id} className={group.mounts ? '' : 'muted'}>
-            {group.key} · {group.label} {group.mounts ? `×${group.mounts}` : '(none fitted)'}
-          </div>
-        ))}
+        {info.fitted.length === 0 ? <div className="muted">Nothing fitted; the token nose gun will have to do.</div> : null}
+        {info.fitted.map((fit) => {
+          const target = { kind: 'equipped', itemId: fit.itemId, group: fit.group } as const;
+          const active = info.weapons.find((group) => group.id === fit.group)?.active;
+          return (
+            <div
+              key={fit.itemId}
+              className={`fitted-item${active ? ' active' : ''}`}
+              title="right-click for options"
+              onClick={(event) => actions.onItemMenu(target, event.clientX, event.clientY, true)}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                actions.onItemMenu(target, event.clientX, event.clientY, false);
+              }}
+            >
+              {icons[fit.itemId] ? <img className="fitted-icon" src={icons[fit.itemId]} alt="" draggable={false} /> : null}
+              <span className="fitted-name">{fit.name}</span>
+              <span className="muted fitted-group">
+                {info.weapons.find((group) => group.id === fit.group)?.key} · {fit.mounts > 1 ? `×${fit.mounts}` : ''}
+              </span>
+            </div>
+          );
+        })}
       </div>
       <div className="muted inv-footer">
         kills {info.kills} · deaths {info.deaths}

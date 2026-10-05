@@ -32,6 +32,14 @@ export interface MapWindowBridge {
   onPointerLeave(): void;
 }
 
+/** An open option menu: where, what, and what to do with the chosen index. */
+export interface MenuState {
+  readonly x: number;
+  readonly y: number;
+  readonly options: ReadonlyArray<{ readonly label: string; readonly target: string }>;
+  onPick(index: number): void;
+}
+
 /** Everything interface views may reach: shared stores, controllers and the HUD's actions. */
 export interface HudServices<Info = unknown, Actions = unknown> {
   readonly interfaces: InterfaceStore<InterfaceView>;
@@ -43,6 +51,8 @@ export interface HudServices<Info = unknown, Actions = unknown> {
   readonly actions: Actions;
   readonly controls: ReadonlyArray<readonly [string, string]>;
   readonly map: MapWindowBridge;
+  /** The right-click option menu, when open. */
+  readonly menu: ValueStore<MenuState | null>;
 }
 
 export const ServicesContext = createContext<HudServices | null>(null);

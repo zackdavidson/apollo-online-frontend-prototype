@@ -1457,3 +1457,89 @@ body[data-mode='flight'] .flight {
   letter-spacing: 0.02em;
   text-shadow: 0 0 3px #000;
 }
+
+
+/* Right-click option menu. */
+.ui-menu {
+  position: absolute;
+  z-index: 70;
+  pointer-events: auto;
+  padding: 0 0 2px;
+  background: rgba(10, 12, 20, 0.97);
+  border: 1px solid rgba(150, 160, 180, 0.7);
+  border-radius: 4px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  font-size: 12.5px;
+}
+
+.ui-menu-title {
+  padding: 5px 8px 4px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(200, 208, 220, 0.6);
+  border-bottom: 1px solid rgba(60, 70, 90, 0.7);
+}
+
+.ui-menu-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 3px 8px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: #e6ecf5;
+  cursor: pointer;
+  font: inherit;
+  line-height: 18px;
+}
+
+.ui-menu-option:hover {
+  background: rgba(111, 211, 255, 0.14);
+}
+
+.ui-menu-option.default {
+  color: #fff;
+}
+
+.ui-menu-target {
+  color: #ffd27a;
+}
+
+.ui-menu-cancel {
+  color: rgba(200, 208, 220, 0.7);
+}
+
+.fitted-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.fitted-item:hover {
+  background: rgba(111, 211, 255, 0.08);
+}
+
+.fitted-item.active {
+  border-color: rgba(111, 211, 255, 0.5);
+}
+
+.fitted-icon {
+  width: 28px;
+  height: 28px;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.7));
+}
+
+.fitted-name {
+  flex: 1;
+  font-weight: 600;
+}
+
+.fitted-group {
+  font-size: 11px;
+}

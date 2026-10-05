@@ -47,6 +47,7 @@ export type GameEvent =
   | { readonly type: 'comet-entered' }
   | { readonly type: 'comet-left' }
   | { readonly type: 'pickup-collected'; readonly shipId: ShipId; readonly kind: ResourceKind; readonly count: number }
+  | { readonly type: 'pickup-dropped'; readonly shipId: ShipId; readonly kind: ResourceKind; readonly count: number }
   | { readonly type: 'warp-started'; readonly shipId: ShipId; readonly x: number; readonly z: number; readonly chargeUntil: number }
   | { readonly type: 'warp-blanked'; readonly shipId: ShipId; readonly x: number; readonly z: number }
   | { readonly type: 'warp-arrived'; readonly shipId: ShipId; readonly x: number; readonly z: number }

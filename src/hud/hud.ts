@@ -1,6 +1,6 @@
 import { clear, el } from '../ui/dom';
 import type { CameraMode } from '../scene/cameraRig';
-import type { Inventory } from '../game/loot';
+import type { Inventory, ResourceKind } from '../game/loot';
 import { fromMapCoords, headingBearing, toMapCoords, worldVectorToMap } from '../game/mapCoords';
 import type { ResolvedMarker } from '../game/map';
 import { drawMapIcon } from './mapIcons';
@@ -20,6 +20,7 @@ import {
   type InterfaceView,
   type InventoryTab,
   type MapWindowBridge,
+  type MenuState,
 } from './interfaces';
 import { defaultTabs } from './interfaces/tabs';
 import type { PixelScope } from '../scene/pixelate';
@@ -65,6 +66,8 @@ export interface HudInfo {
   /** Map-authored labels and icons. */
   readonly markers: readonly ResolvedMarker[];
   readonly mapName: string;
+  /** Weapon items fitted to the player's ship, for the side panel. */
+  readonly fitted: ReadonlyArray<{ readonly itemId: string; readonly name: string; readonly group: WeaponGroup; readonly mounts: number }>;
   /** The player's ship, for the side panel. */
   readonly ship: { readonly name: string; readonly hullName: string; readonly shield: number; readonly maxShield: number; readonly hull: number; readonly maxHull: number };
   /** The shooting star while it is in the sector. */
@@ -80,7 +83,11 @@ export interface HudActions {
   onTeleport(x: number, z: number): void;
   /** A line typed into the chat box. */
   onChatSend(text: string): void;
+  /** Right-click (or default-click) on an item in the hold or fitted to the ship; `x`/`y` are client pixels. */
+  onItemMenu(target: ItemMenuTarget, x: number, y: number, defaultOnly: boolean): void;
 }
+
+export type ItemMenuTarget = { readonly kind: 'inventory'; readonly item: ResourceKind; readonly count: number } | { readonly kind: 'equipped'; readonly itemId: string; readonly group: WeaponGroup };
 
 const CONTROLS: ReadonlyArray<readonly [string, string]> = [
   ['W A S D', 'thrust and strafe · Shift boosts'],
@@ -111,6 +118,7 @@ export class FlightHud {
   private readonly tabs: ValueStore<readonly InventoryTab[]>;
   private readonly info = new ValueStore<HudInfo | null>(null);
   private readonly itemIcons = new ValueStore<Readonly<Record<string, string>>>({});
+  private readonly menu = new ValueStore<MenuState | null>(null);
   private lastInfoPush = -Infinity;
   private readonly mapBridge: MapWindowBridge;
   private mapCanvas: HTMLCanvasElement | null = null;
@@ -197,7 +205,7 @@ export class FlightHud {
       this.prompt,
       el('div', { className: 'hud hud-right-column' }, [el('div', { className: 'minimap-wrap' }, [this.minimap, expand]), this.status]),
     );
-    const services: HudServices<HudInfo, HudActions> = { interfaces: this.store, chat: this.chat, tabs: this.tabs, info: this.info, itemIcons: this.itemIcons, actions, controls: CONTROLS, map: this.mapBridge };
+    const services: HudServices<HudInfo, HudActions> = { interfaces: this.store, chat: this.chat, tabs: this.tabs, info: this.info, itemIcons: this.itemIcons, actions, controls: CONTROLS, map: this.mapBridge, menu: this.menu };
     this.interfaces = new InterfaceManager(root, this.store, services as HudServices);
     // The chat box and the side panel are open from the start; the rest open on demand.
     this.interfaces.open(INTERFACE_IDS.chat);
@@ -211,6 +219,19 @@ export class FlightHud {
   setHelpVisible(visible: boolean): void {
     if (visible) this.interfaces.open(INTERFACE_IDS.help);
     else this.interfaces.close(INTERFACE_IDS.help);
+  }
+
+  get menuOpen(): boolean {
+    return this.menu.get() !== null;
+  }
+
+  /** Open the right-click option menu at client pixels; `onPick` gets the chosen index. */
+  openMenu(state: MenuState): void {
+    this.menu.set(state.options.length ? state : null);
+  }
+
+  closeMenu(): void {
+    this.menu.set(null);
   }
 
   /** Item sprites as data URLs, keyed by item id; the inventory draws them. */

@@ -8,8 +8,9 @@ const SPRITE_SIZE = 1.9;
 
 /**
  * Dropped items as billboard sprites of their item art, old-school style:
- * one shared material per item kind, a pooled sprite per pickup, bobbing
- * gently and shrinking away in their last seconds.
+ * one shared material per item kind, a pooled sprite per pickup, sitting
+ * still where they fell and shrinking away in their last seconds. The
+ * hovered stack gets a white silhouette outline, like a hovered rock.
  */
 export class LootRenderer {
   readonly group = new Group();
@@ -47,8 +48,9 @@ export class LootRenderer {
       const sprite = this.sprites[i]!;
       sprite.visible = true;
       sprite.material = this.materialFor(p.kind);
-      const bob = 0.25 + Math.sin(time * 2.5 + p.phase) * 0.12;
-      sprite.position.set(p.x, bob, p.z);
+      // Stacks sit still where they fell; `time` only drives nothing now, kept for the signature.
+      void time;
+      sprite.position.set(p.x, 0.3, p.z);
       const fade = Math.min(1, p.life / 3);
       // Bigger stacks read a little bigger.
       const stack = 1 + Math.min(0.3, Math.log10(Math.max(1, p.count)) * 0.3);
@@ -76,12 +78,12 @@ export class LootRenderer {
     this.sprites.length = 0;
   }
 
-  /** The item's alpha as a flat cyan silhouette: the outline colour, no texture detail. */
+  /** The item's alpha as a flat white silhouette, the same outline the rocks get. */
   private outlineMaterialFor(kind: string): SpriteMaterial {
     let material = this.outlineMaterials.get(kind);
     if (!material) {
       const alphaMap = this.atlas.textureFor(kind);
-      material = new SpriteMaterial({ color: 0x6fd3ff, transparent: true, depthWrite: false, opacity: 0.95, ...(alphaMap ? { alphaMap } : {}) });
+      material = new SpriteMaterial({ color: 0xffffff, transparent: true, depthWrite: false, opacity: 0.9, ...(alphaMap ? { alphaMap } : {}) });
       this.outlineMaterials.set(kind, material);
     }
     return material;

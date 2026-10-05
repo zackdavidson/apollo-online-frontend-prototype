@@ -5,7 +5,8 @@ import { COMET_RESOURCES } from '../game/comet';
 import { TurretAi, type ShipController } from '../game/controllers';
 import { formatHit } from '../game/damageRoll';
 import type { GameEvent } from '../game/events';
-import { speedOf } from '../game/flightController';
+import { speedOf, type FlightInput } from '../game/flightController';
+import { optionsFor, type GameAction, type OptionContext } from '../game/actions';
 import { defaultItemCatalog } from '../game/items';
 import { RESOURCES } from '../game/loot';
 import { defaultResolvedMap, type ResolvedMap } from '../game/map';
@@ -14,11 +15,11 @@ import { shipToWorld, type WeaponMount } from '../game/projectiles';
 import { ROCK_KINDS, rockDropItems, type Rock } from '../game/rocks';
 import { WorldSim } from '../game/simulation';
 import { sampleWarp } from '../game/warp';
-import { WEAPON_GROUPS } from '../game/weapons';
+import { WEAPON_GROUPS, type WeaponGroup } from '../game/weapons';
 import type { Pick, ShipEntity, ShipId, Stance } from '../game/world';
 import { HitMarkers, type HitStyle } from '../hud/hitMarkers';
 import { parseInterfaceCommand, type DialogueLine, type InterfaceCommand } from '../hud/interfaces';
-import { FlightHud } from '../hud/hud';
+import { FlightHud, type HudInfo } from '../hud/hud';
 import { FlightInputTracker } from '../hud/input';
 import { WorldLabels } from '../hud/labels';
 import type { BeamVisual } from '../scene/beamRenderer';
@@ -66,6 +67,8 @@ export interface NpcDialogue {
 
 /** Default talking distance from the player's centre, in world units. */
 export const DEFAULT_INTERACT_RANGE = 30;
+/** How far beyond the hull "Take" reaches for a dropped stack. */
+const TAKE_RANGE = 10;
 
 export interface FlightSessionOptions {
   readonly player: SessionShip;
@@ -179,11 +182,19 @@ export class FlightSession {
         if (!this.inDialogue) this.sim.requestWarp(PLAYER_ID, x, z);
       },
       onChatSend: (text) => this.chatSend(text),
+      onItemMenu: (target, x, y, defaultOnly) => {
+        const options = optionsFor(target);
+        if (defaultOnly) {
+          if (options[0]) this.runAction(options[0].action);
+        } else this.openMenu(options, x, y);
+      },
     });
     this.input = new FlightInputTracker(this.scene.surface, {
       // Esc closes whatever is open first (dialogue, help, map), then leaves flight.
       onExit: () => {
-        if (this.hud.chat.dialogueOpen) this.hud.chat.closeDialogue();
+        if (this.hud.menuOpen) this.hud.closeMenu();
+        else if (this.autoMine) this.stopAutoMine('Stopped mining.');
+        else if (this.hud.chat.dialogueOpen) this.hud.chat.closeDialogue();
         else if (!this.hud.interfaces.closeTopmost()) options.onExit();
       },
       // While talking, only Space (advance) and Esc (close) do anything.
@@ -191,6 +202,8 @@ export class FlightSession {
       onToggleMap: () => this.unlessTalking(() => this.hud.setMapExpanded(!this.hud.mapExpanded)),
       onInteract: (repeat) => this.interact(repeat),
       onChatFocus: () => this.unlessTalking(() => this.hud.chat.focusInput()),
+      onContextMenu: (px) => this.unlessTalking(() => this.contextMenuAt(px)),
+      onTap: (px) => this.unlessTalking(() => this.tapAt(px)),
       onZoom: (factor) => this.unlessTalking(() => this.scene.camera.zoomBy(factor)),
       onSelectGroup: (index) => {
         const group = WEAPON_GROUPS[index];
@@ -264,7 +277,9 @@ export class FlightSession {
     this.lastTime = nowMs;
     const time = nowMs / 1000;
 
-    const { flight, cameraTilt, pointerPx } = this.input.snapshot((x, y) => this.scene.aimPoint(x, y));
+    const snapshot = this.input.snapshot((x, y) => this.scene.aimPoint(x, y));
+    const { cameraTilt, pointerPx } = snapshot;
+    const flight = this.applyAutoMine(snapshot.flight);
     this.sim.setInput(PLAYER_ID, flight);
     if (cameraTilt !== 0) this.scene.camera.tiltBy(cameraTilt * TILT_DEGREES_PER_SECOND * dt);
 
@@ -413,6 +428,7 @@ export class FlightSession {
       markers: this.sim.map.markers,
       mapName: this.sim.map.name,
       ship: { name: player.spec.name, hullName: player.spec.hullName, shield: player.vitals.shield, maxShield: player.vitals.maxShield, hull: player.vitals.hull, maxHull: player.vitals.maxHull },
+      fitted: this.fittedItems(player),
       comet: comet.alive ? comet : null,
     });
     const inside = player.alive ? this.sim.hazards.insideFor(PLAYER_ID)[0] : undefined;
@@ -431,6 +447,147 @@ export class FlightSession {
       }
     }
     this.hud.setInteractPrompt(this.talkable && !this.hud.chat.dialogueOpen ? { key: 'Space', text: `Talk to ${this.talkable.spec.name}` } : null);
+  }
+
+  // ---- options: right-click menus, default actions, auto-mining ---------------
+
+  private autoMine: { readonly target: { readonly kind: 'rock'; readonly rockId: string } | { readonly kind: 'comet' } } | null = null;
+
+  /** Build the option context for whatever is under a world point. */
+  private optionContextAt(pick: Pick): OptionContext | null {
+    if (!pick) return null;
+    switch (pick.kind) {
+      case 'pickup':
+        return { kind: 'ground', pickup: pick.pickup };
+      case 'rock': {
+        const rock = this.sim.rocks.get(pick.rockId);
+        return rock ? { kind: 'rock', rock } : null;
+      }
+      case 'comet':
+        return { kind: 'comet', hp: this.sim.comet.hp, maxHp: this.sim.comet.maxHp };
+      case 'ship':
+        return { kind: 'ship', ship: pick.ship, talkable: this.talkable === pick.ship, isPlayer: pick.ship.spec.id === PLAYER_ID };
+      case 'beacon':
+        return { kind: 'beacon', beacon: pick.beacon };
+      case 'hazard':
+        return { kind: 'hazard', hazard: pick.hazard };
+    }
+  }
+
+  private contextMenuAt(px: { readonly x: number; readonly y: number }): void {
+    const context = this.optionContextAt(this.hovered);
+    if (!context) return;
+    const rect = this.scene.surface.getBoundingClientRect();
+    this.openMenu(optionsFor(context), rect.left + px.x, rect.top + px.y);
+  }
+
+  private openMenu(options: ReturnType<typeof optionsFor>, x: number, y: number): void {
+    if (options.length === 0) return;
+    this.hud.openMenu({ x, y, options: options.map((option) => ({ label: option.label, target: option.target })), onPick: (index) => {
+      const chosen = options[index];
+      if (chosen) this.runAction(chosen.action);
+    } });
+  }
+
+  /** A quick click on something performs its default option; on empty space it just stops auto-mining. */
+  private tapAt(_px: { readonly x: number; readonly y: number }): void {
+    if (this.hud.menuOpen) return;
+    const context = this.optionContextAt(this.hovered);
+    const first = context ? optionsFor(context)[0] : undefined;
+    if (first) this.runAction(first.action);
+  }
+
+  private say(text: string): void {
+    this.hud.chat.addMessage({ from: '', kind: 'system', text });
+  }
+
+  private runAction(action: GameAction): void {
+    const player = this.sim.getShip(PLAYER_ID)!;
+    switch (action.type) {
+      case 'examine':
+        this.say(action.text);
+        return;
+      case 'take': {
+        const pickup = this.sim.loot.get(action.pickupId);
+        if (!pickup) return;
+        if (!this.sim.takePickup(PLAYER_ID, action.pickupId, player.spec.radius + TAKE_RANGE)) this.say("You're too far away to take that.");
+        return;
+      }
+      case 'drop':
+        if (!this.sim.dropCargo(PLAYER_ID, action.item, action.count)) this.say("You can't drop that right now.");
+        return;
+      case 'select-group':
+        this.sim.selectWeaponGroup(PLAYER_ID, action.group);
+        return;
+      case 'talk':
+        if (this.talkable?.spec.id === action.shipId) this.interact(false);
+        else this.say("You're too far away to talk.");
+        return;
+      case 'mine':
+        this.startAutoMine({ kind: 'rock', rockId: action.rockId });
+        return;
+      case 'mine-comet':
+        this.startAutoMine({ kind: 'comet' });
+        return;
+    }
+  }
+
+  /** Begin mining a rock or the comet with the beam group: the ship holds its aim and fires until done, moved, or out of range. */
+  private startAutoMine(target: { readonly kind: 'rock'; readonly rockId: string } | { readonly kind: 'comet' }): void {
+    const player = this.sim.getShip(PLAYER_ID)!;
+    if (player.beamMounts.length === 0) {
+      this.say('You have nothing to mine with. Fit a mining laser or drill.');
+      return;
+    }
+    this.sim.selectWeaponGroup(PLAYER_ID, 'beam');
+    this.autoMine = { target };
+    this.say(target.kind === 'rock' ? 'You begin mining the rock.' : 'You begin mining the comet.');
+  }
+
+  private stopAutoMine(reason: string | null): void {
+    if (!this.autoMine) return;
+    this.autoMine = null;
+    if (reason) this.say(reason);
+  }
+
+  /** While auto-mining, aim at the target and hold the trigger; any manual input or a lost target stops it. */
+  private applyAutoMine(flight: FlightInput): FlightInput {
+    if (!this.autoMine) return flight;
+    const player = this.sim.getShip(PLAYER_ID);
+    if (!player || !player.alive || player.held) {
+      this.autoMine = null;
+      return flight;
+    }
+    if (flight.thrust !== 0 || flight.strafe !== 0 || flight.fire) {
+      this.stopAutoMine(null);
+      return flight;
+    }
+    const target = this.autoMine.target;
+    const point = target.kind === 'rock' ? this.sim.rocks.get(target.rockId) : this.sim.comet.alive ? this.sim.comet : null;
+    if (!point || (target.kind === 'rock' && (point as Rock).hp <= 0)) {
+      this.stopAutoMine(null);
+      return flight;
+    }
+    const range = Math.max(...player.beamMounts.map((mount) => mount.weapon.range ?? 0));
+    const distance = Math.hypot(point.x - player.state.x, point.z - player.state.z);
+    if (distance > range) {
+      this.stopAutoMine(`You need to be within ${range.toFixed(0)} units to mine that.`);
+      return flight;
+    }
+    return { ...flight, aim: [point.x, point.z], fire: true };
+  }
+
+  /** Weapon items fitted to a ship, one entry per item with how many mounts carry it. */
+  private fittedItems(ship: ShipEntity): HudInfo['fitted'] {
+    const counts = new Map<string, { name: string; group: WeaponGroup; mounts: number }>();
+    for (const mount of ship.spec.weaponMounts) {
+      const item = defaultItemCatalog().get(mount.weapon.id);
+      if (!item) continue;
+      const entry = counts.get(item.id) ?? { name: item.name, group: mount.weapon.group, mounts: 0 };
+      entry.mounts += 1;
+      counts.set(item.id, entry);
+    }
+    return [...counts].map(([itemId, entry]) => ({ itemId, ...entry }));
   }
 
   /** Space: advance an open dialogue (held key repeats skip), or start one with the ship in range. */
@@ -585,6 +742,9 @@ export class FlightSession {
         return;
       case 'comet-left':
         this.message = { text: 'The comet has left the sector', until: now + 3 };
+        return;
+      case 'pickup-dropped':
+        if (event.shipId === PLAYER_ID) this.hud.chat.addMessage({ from: '', kind: 'system', text: `Dropped ${RESOURCES[event.kind].label} × ${event.count}.` });
         return;
       case 'pickup-collected': {
         if (event.shipId !== PLAYER_ID) return;

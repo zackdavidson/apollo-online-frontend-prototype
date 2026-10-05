@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import type { InterfaceView } from './context';
+import { ContextMenu } from './ContextMenu';
 import { INTERFACE_SLOTS, type InterfaceStore } from './store';
 
 /** Renders the five slot containers and whatever interface is open in each. */
@@ -21,6 +22,7 @@ export function InterfaceRoot({ store }: { store: InterfaceStore<InterfaceView> 
           </div>
         );
       })}
+      <ContextMenu />
     </div>
   );
 }

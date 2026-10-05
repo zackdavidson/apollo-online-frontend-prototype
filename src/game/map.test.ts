@@ -252,6 +252,10 @@ describe('WorldSim from a map', () => {
     expect(sim.rocks.snapshot(resolved.spawn.x, resolved.spawn.z, 100)).toEqual([]);
     // The rock is gone; what is left under the cursor is the stack it dropped, never the rock.
     expect(sim.pick(rock.x, rock.z)?.kind).not.toBe('rock');
+    const stack = sim.loot.pickups[0]!;
+    expect(stack).toMatchObject({ kind: 'stone', armed: true });
+    expect(sim.takePickup('p', stack.id, 100)).toBe(true);
+    expect(sim.loot.pickups).toHaveLength(0);
     sim.setInput('p', { thrust: 0, strafe: 0, boost: false, aim: null, fire: false });
     const later: GameEvent[] = [];
     for (let dt = 0; dt < 5.2; dt += 1 / 60) later.push(...sim.step(1 / 60));

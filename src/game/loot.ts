@@ -2,10 +2,11 @@ import { RESOURCE_KINDS, defaultItemCatalog, type ResourceKind } from './items';
 import { range, type Rng } from './random';
 
 /**
- * Dropped items and the pickups that carry them. Which items exist, what
+ * Dropped items and the stacks that carry them. Which items exist, what
  * they are called and what they look like comes from the item catalog;
- * this file only moves them about. Pickups drift, get pulled in when the
- * ship is close, and are collected on contact.
+ * this file only places and collects them. A dropped stack sits where it
+ * fell, old-school style: no drift, no magnet. A collector that comes
+ * within reach takes the whole stack and it vanishes.
  */
 
 export { RESOURCE_KINDS, type ResourceKind };
@@ -40,26 +41,27 @@ export interface Pickup {
   readonly kind: ResourceKind;
   /** How many of the item this stack holds; collecting it takes them all. */
   readonly count: number;
-  x: number;
-  z: number;
-  vx: number;
-  vz: number;
+  readonly x: number;
+  readonly z: number;
   /** Seconds left before it fades away. */
   life: number;
   readonly phase: number;
+  /**
+   * Whether walking over it collects it. A stack the player dropped starts
+   * disarmed and arms once they have moved away, so dropping is not undone
+   * on the spot. "Take" ignores this.
+   */
+  armed: boolean;
 }
 
 export interface LootTuning {
   readonly lifetime: number;
-  /** Distance within which pickups are pulled towards the ship. */
-  readonly magnetRange: number;
-  readonly magnetAccel: number;
-  readonly maxPullSpeed: number;
-  readonly drag: number;
+  /** Reach beyond the collector's radius within which a stack is picked up. */
+  readonly reach: number;
   readonly maxPickups: number;
 }
 
-export const DEFAULT_LOOT_TUNING: LootTuning = { lifetime: 45, magnetRange: 16, magnetAccel: 90, maxPullSpeed: 55, drag: 1.2, maxPickups: 400 };
+export const DEFAULT_LOOT_TUNING: LootTuning = { lifetime: 45, reach: 3, maxPickups: 400 };
 
 export interface Collector {
   readonly x: number;
@@ -76,22 +78,23 @@ export class LootField {
     private readonly tuning: LootTuning = DEFAULT_LOOT_TUNING,
   ) {}
 
-  /** Drop one stack of `count` × `kind` near a point, drifting outward. Pass `Infinity` as lifetime for permanent caches. */
-  spawn(x: number, z: number, kind: ResourceKind, count: number, lifetime: number = this.tuning.lifetime): void {
-    if (count <= 0 || this.pickups.length >= this.tuning.maxPickups) return;
+  /** Drop one stack of `count` × `kind` beside a point. `Infinity` lifetime makes a permanent cache. */
+  spawn(x: number, z: number, kind: ResourceKind, count: number, lifetime: number = this.tuning.lifetime, options: { readonly armed?: boolean } = {}): Pickup | null {
+    if (count <= 0 || this.pickups.length >= this.tuning.maxPickups) return null;
     const angle = this.rng() * Math.PI * 2;
-    const speed = range(this.rng, 2, 7);
-    this.pickups.push({
+    const distance = range(this.rng, 0.4, 1.6);
+    const pickup: Pickup = {
       id: this.nextId++,
       kind,
       count: Math.round(count),
-      x: x + Math.cos(angle) * 0.6,
-      z: z + Math.sin(angle) * 0.6,
-      vx: Math.cos(angle) * speed,
-      vz: Math.sin(angle) * speed,
-      life: lifetime * range(this.rng, 0.85, 1.0),
+      x: x + Math.cos(angle) * distance,
+      z: z + Math.sin(angle) * distance,
+      life: lifetime === Infinity ? Infinity : lifetime * range(this.rng, 0.85, 1.0),
       phase: this.rng() * Math.PI * 2,
-    });
+      armed: options.armed ?? true,
+    };
+    this.pickups.push(pickup);
+    return pickup;
   }
 
   /** The stack under a hovering cursor: nearest within a generous radius, or null. */
@@ -108,10 +111,22 @@ export class LootField {
     return best;
   }
 
-  /** Move pickups, pull nearby ones in, and return what the collector picked up. */
+  get(id: number): Pickup | undefined {
+    return this.pickups.find((pickup) => pickup.id === id);
+  }
+
+  /** Deliberately take a stack (the "Take" option): removed if within `maxDistance` of the collector, armed or not. */
+  take(id: number, collector: Collector, maxDistance: number): Pickup | null {
+    const index = this.pickups.findIndex((pickup) => pickup.id === id);
+    const pickup = this.pickups[index];
+    if (!pickup || Math.hypot(pickup.x - collector.x, pickup.z - collector.z) > maxDistance) return null;
+    this.removeAt(index);
+    return pickup;
+  }
+
+  /** Age stacks away and collect the armed ones the collector is standing on. */
   step(dt: number, collector: Collector | null): Partial<Record<ResourceKind, number>> {
     const collected: Partial<Record<ResourceKind, number>> = {};
-    const damping = Math.exp(-this.tuning.drag * dt);
     for (let i = this.pickups.length - 1; i >= 0; i--) {
       const p = this.pickups[i]!;
       p.life -= dt;
@@ -119,41 +134,22 @@ export class LootField {
         this.removeAt(i);
         continue;
       }
-      if (collector) {
-        const dx = collector.x - p.x;
-        const dz = collector.z - p.z;
-        const distance = Math.hypot(dx, dz);
-        if (distance <= collector.radius + 0.9) {
-          collected[p.kind] = (collected[p.kind] ?? 0) + p.count;
-          this.removeAt(i);
-          continue;
-        }
-        if (distance < this.tuning.magnetRange) {
-          const pull = this.tuning.magnetAccel * (1 - distance / this.tuning.magnetRange + 0.3);
-          p.vx += (dx / distance) * pull * dt;
-          p.vz += (dz / distance) * pull * dt;
-          const speed = Math.hypot(p.vx, p.vz);
-          if (speed > this.tuning.maxPullSpeed) {
-            p.vx *= this.tuning.maxPullSpeed / speed;
-            p.vz *= this.tuning.maxPullSpeed / speed;
-          }
-        } else {
-          p.vx *= damping;
-          p.vz *= damping;
-        }
-      } else {
-        p.vx *= damping;
-        p.vz *= damping;
+      if (!collector) continue;
+      const distance = Math.hypot(collector.x - p.x, collector.z - p.z);
+      const within = distance <= collector.radius + this.tuning.reach;
+      if (!within) {
+        p.armed = true;
+      } else if (p.armed) {
+        collected[p.kind] = (collected[p.kind] ?? 0) + p.count;
+        this.removeAt(i);
       }
-      p.x += p.vx * dt;
-      p.z += p.vz * dt;
     }
     return collected;
   }
 
   private removeAt(index: number): void {
     const last = this.pickups.length - 1;
-    this.pickups[index] = this.pickups[last]!;
+    if (index !== last) this.pickups[index] = this.pickups[last]!;
     this.pickups.pop();
   }
 }

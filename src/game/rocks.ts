@@ -14,6 +14,8 @@ export type RockKind = 'stone' | 'iron' | 'ice' | 'crystal' | 'giant';
 
 export interface RockKindInfo {
   readonly label: string;
+  /** One line for Examine. */
+  readonly description: string;
   /** Multiplier on the size-based health. */
   readonly toughness: number;
   /** Instance colours the renderer picks from. */
@@ -37,12 +39,13 @@ export interface RockDrop {
 }
 
 export const ROCK_KINDS: Readonly<Record<RockKind, RockKindInfo>> = {
-  stone: { label: 'Stone', toughness: 1, colours: ['#7d7467', '#6e675e', '#8a7a68', '#5f5a55'], drops: [{ item: 'stone', perRadius: 1.2 }] },
-  iron: { label: 'Iron', toughness: 1.6, colours: ['#4f535c', '#5b5f68', '#43474f', '#6a6e78'], drops: [{ item: 'iron-ore', perRadius: 1.0 }, { item: 'stone', perRadius: 0.4 }] },
-  ice: { label: 'Ice', toughness: 0.7, colours: ['#bfe0f0', '#a9d2e8', '#d4ecf7', '#9cc6dd'], drops: [{ item: 'ice', perRadius: 1.3 }] },
-  crystal: { label: 'Crystal', toughness: 1.3, colours: ['#5a4a7a', '#6b5690', '#4c3f6b'], gems: '#c9a6ff', drops: [{ item: 'crystal', perRadius: 0.7 }, { item: 'stone', perRadius: 0.4 }] },
+  stone: { label: 'Stone', description: 'Common asteroid rock.', toughness: 1, colours: ['#7d7467', '#6e675e', '#8a7a68', '#5f5a55'], drops: [{ item: 'stone', perRadius: 1.2 }] },
+  iron: { label: 'Iron', description: 'Dark, dense rock veined with metal.', toughness: 1.6, colours: ['#4f535c', '#5b5f68', '#43474f', '#6a6e78'], drops: [{ item: 'iron-ore', perRadius: 1.0 }, { item: 'stone', perRadius: 0.4 }] },
+  ice: { label: 'Ice', description: 'A brittle lump of dirty ice.', toughness: 0.7, colours: ['#bfe0f0', '#a9d2e8', '#d4ecf7', '#9cc6dd'], drops: [{ item: 'ice', perRadius: 1.3 }] },
+  crystal: { label: 'Crystal', description: 'Violet rock studded with glowing crystal.', toughness: 1.3, colours: ['#5a4a7a', '#6b5690', '#4c3f6b'], gems: '#c9a6ff', drops: [{ item: 'crystal', perRadius: 0.7 }, { item: 'stone', perRadius: 0.4 }] },
   giant: {
     label: 'Giant',
+    description: 'A mountain of a rock. It will take a while.',
     toughness: 1.4,
     colours: ['#5c5247', '#4e463e', '#6b5f52'],
     drops: [{ item: 'stone', perRadius: 2.5 }, { item: 'iron-ore', perRadius: 1.0 }, { item: 'crystal', flat: [1, 3], chance: 0.6 }],

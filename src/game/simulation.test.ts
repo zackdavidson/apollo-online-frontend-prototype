@@ -120,16 +120,52 @@ describe('WorldSim', () => {
     expect(sim.getShip('p1')!.vitals.shield).toBeLessThan(60);
   });
 
-  it('mines a rock into pickups and collects them', () => {
+  it('mines a rock into a stack that sits still until taken, on purpose or by flying over it', () => {
     const sim = new WorldSim();
     const rock = sim.rocks.rocks.find((r) => r.kind === 'stone' && r.radius < 2)!;
-    // Park right next to the rock, facing it.
+    // Park 8 units from the rock: close enough to shoot, too far for the hull to touch the drop.
     sim.addShip(player({ spawn: { x: rock.x, z: rock.z - 8, heading: 0 } }));
     sim.setInput('p1', { ...IDLE_INPUT, fire: true, aim: [rock.x, rock.z] });
     const events = run(sim, 8);
     expect(events.some((e) => e.type === 'rock-destroyed' && e.rock.id === rock.id)).toBe(true);
-    expect(events.some((e) => e.type === 'pickup-collected' && e.kind === 'stone')).toBe(true);
-    expect(sim.getShip('p1')!.cargo.stone).toBeGreaterThan(0);
+    sim.setInput('p1', IDLE_INPUT);
+    const stack = sim.loot.pickups.find((p) => p.kind === 'stone')!;
+    expect(stack).toMatchObject({ armed: true });
+    expect(Math.hypot(stack.x - rock.x, stack.z - rock.z)).toBeLessThan(2);
+    const where = { x: stack.x, z: stack.z };
+    run(sim, 2);
+    expect(sim.loot.get(stack.id)).toMatchObject(where);
+    // Too far to take by hand with a short reach; fine when asked with a generous one.
+    expect(sim.takePickup('p1', stack.id, 1)).toBe(false);
+    expect(sim.takePickup('p1', stack.id, 100)).toBe(true);
+    const after = sim.step(1 / 60);
+    expect(after.some((e) => e.type === 'pickup-collected' && e.kind === 'stone' && e.count === stack.count)).toBe(true);
+    expect(sim.getShip('p1')!.cargo.stone).toBe(stack.count);
+  });
+
+  it('drops a stack from the hold that is not re-collected until the ship has moved away', () => {
+    const sim = new WorldSim();
+    sim.addShip(player({ collectsLoot: true }));
+    const ship = sim.getShip('p1')!;
+    ship.cargo = { ...ship.cargo, ice: 3 };
+    expect(sim.dropCargo('p1', 'ice', 5)).toBe(false);
+    expect(sim.dropCargo('p1', 'ice', 3)).toBe(true);
+    expect(sim.getShip('p1')!.cargo.ice).toBe(0);
+    const events = run(sim, 2);
+    expect(events.some((e) => e.type === 'pickup-dropped' && e.count === 3)).toBe(true);
+    expect(sim.loot.pickups).toHaveLength(1);
+    expect(sim.getShip('p1')!.cargo.ice).toBe(0);
+    // Fly off and come back: now it is picked up.
+    sim.setInput('p1', { ...IDLE_INPUT, thrust: 1, boost: true });
+    run(sim, 1.5);
+    sim.setInput('p1', { ...IDLE_INPUT, thrust: -1, boost: true });
+    run(sim, 1.5);
+    const stack = sim.loot.pickups[0];
+    if (stack) {
+      // Still there: steer straight onto it to finish the test deterministically.
+      expect(sim.takePickup('p1', stack.id, 1000)).toBe(true);
+    }
+    expect(sim.getShip('p1')!.cargo.ice).toBe(3);
   });
 
   it('warps a ship with blank-out, moving it only once covered', () => {

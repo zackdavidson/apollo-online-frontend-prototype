@@ -16,7 +16,14 @@ export interface InputCallbacks {
   onInteract(repeat: boolean): void;
   /** Enter: put the cursor in the chat box. */
   onChatFocus(): void;
+  /** Right button: open the option menu for whatever is under the pointer (CSS pixels within the surface). */
+  onContextMenu(pointerPx: { readonly x: number; readonly y: number }): void;
+  /** A quick left click without holding: perform the default option of what is under the pointer. */
+  onTap(pointerPx: { readonly x: number; readonly y: number }): void;
 }
+
+/** A press and release faster than this is a tap (default option), not a burst of fire. */
+const TAP_MS = 220;
 
 /** True while the keyboard belongs to a text field (the chat box), so flight keys stay out of it. */
 function typing(): boolean {
@@ -153,13 +160,22 @@ export class FlightInputTracker {
     this.pointerPx = { x: event.clientX - rect.left, y: event.clientY - rect.top };
   };
 
+  private pressedAt = 0;
+
   private readonly onPointerDown = (event: PointerEvent): void => {
-    if (event.button === 0) this.firing = true;
     this.onPointerMove(event);
+    if (event.button === 0) {
+      this.firing = true;
+      this.pressedAt = performance.now();
+    } else if (event.button === 2 && this.pointerPx) {
+      this.callbacks.onContextMenu(this.pointerPx);
+    }
   };
 
   private readonly onPointerUp = (event: PointerEvent): void => {
-    if (event.button === 0) this.firing = false;
+    if (event.button !== 0) return;
+    this.firing = false;
+    if (performance.now() - this.pressedAt < TAP_MS && this.pointerPx) this.callbacks.onTap(this.pointerPx);
   };
 
   private readonly onPointerLeave = (): void => {

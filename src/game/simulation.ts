@@ -409,6 +409,28 @@ export class WorldSim implements ControllerView {
     }
   }
 
+  /** Pick a dropped stack up on purpose (the "Take" option). False if it is gone or farther than `maxDistance`. */
+  takePickup(id: ShipId, pickupId: number, maxDistance: number): boolean {
+    const ship = this.ships.get(id);
+    if (!ship || !ship.alive) return false;
+    const taken = this.loot.take(pickupId, { x: ship.state.x, z: ship.state.z, radius: ship.spec.radius }, maxDistance);
+    if (!taken) return false;
+    ship.cargo = { ...ship.cargo, [taken.kind]: ship.cargo[taken.kind] + taken.count };
+    this.pending.push({ type: 'pickup-collected', shipId: id, kind: taken.kind, count: taken.count });
+    return true;
+  }
+
+  /** Drop a stack from the hold beside the ship. It will not be picked straight back up until the ship moves away. */
+  dropCargo(id: ShipId, kind: ResourceKind, count: number): boolean {
+    const ship = this.ships.get(id);
+    if (!ship || !ship.alive || count <= 0 || ship.cargo[kind] < count) return false;
+    const dropped = this.loot.spawn(ship.state.x, ship.state.z, kind, count, undefined, { armed: false });
+    if (!dropped) return false;
+    ship.cargo = { ...ship.cargo, [kind]: ship.cargo[kind] - count };
+    this.pending.push({ type: 'pickup-dropped', shipId: id, kind, count });
+    return true;
+  }
+
   /** Freeze or release a ship: a held ship stops dead, ignores input and cannot fire until released. */
   setHeld(id: ShipId, held: boolean): void {
     const ship = this.ships.get(id);
