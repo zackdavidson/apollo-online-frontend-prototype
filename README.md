@@ -232,7 +232,8 @@ the ship comes within a few units of it, or on purpose with its Take
 option. Stacks the player drops from the hold stay disarmed until the ship
 has moved away (or warped), so dropping is not undone on the spot.
 Hovering a stack outlines it in white, like a rock, with a tooltip naming
-the item, count and worth. Drop sprites live on the overlay layer, so
+the item, count and worth. Stacks show on the small minimap as red dots; the
+expanded sector map leaves them out. Drop sprites live on the overlay layer, so
 pixelation never touches them.
 
 **Options, old-school.** Right-click anything to get its options, default
@@ -516,7 +517,7 @@ main window, then leaves flight.
   waypoint shows on both maps as a cyan diamond with a dashed line from
   the ship, and in the world as an edge arrow with its distance, or a
   blinking diamond on the spot when in view, like the comet's indicator.
-  A dashed ring on both maps shows the warp drive's reach (600 units).
+  A dashed ring on both maps shows the warp drive's reach (1000 units).
   While the map is open the ship holds still. Clicking a spot puts a
   "Warp here" button right under the waypoint on the map (greyed with the
   shortfall when it is beyond the ring); pressing it, or J, closes the map

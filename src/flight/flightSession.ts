@@ -70,7 +70,7 @@ export const DEFAULT_INTERACT_RANGE = 30;
 /** How far beyond the hull "Take" reaches for a dropped stack. */
 const TAKE_RANGE = 10;
 /** Reach of the warp drive from the ship, in world units. */
-export const WARP_RANGE = 600;
+export const WARP_RANGE = 1000;
 /** Clicking this close to the existing waypoint clears it. */
 const WAYPOINT_CLEAR_RADIUS = 8;
 
@@ -445,6 +445,7 @@ export class FlightSession {
       pixelScope: this.scene.pixelScope,
       beacons: this.sim.beacons.beacons,
       hazards: this.sim.hazards.hazards,
+      drops: this.sim.loot.pickups.map((pickup) => ({ x: pickup.x, z: pickup.z, kind: pickup.kind, label: pickup.count > 1 ? `${RESOURCES[pickup.kind].label} × ${pickup.count}` : RESOURCES[pickup.kind].label })),
       markers: this.sim.map.markers,
       mapName: this.sim.map.name,
       ship: { name: player.spec.name, hullName: player.spec.hullName, shield: player.vitals.shield, maxShield: player.vitals.maxShield, hull: player.vitals.hull, maxHull: player.vitals.maxHull },

@@ -160,8 +160,8 @@ function frameCamera(camera: OrthographicCamera, bounds: Bounds, sprite: SpriteF
   camera.updateProjectionMatrix();
 }
 
-/** Outline thickness in sprite pixels (the sprite is 96 px, so this is a crisp edge, not a halo). */
-const OUTLINE_PX = 3;
+/** Outline thickness in sprite pixels: about a tenth of the 96 px sprite, so it stays a bold edge at play zoom. */
+const OUTLINE_PX = 10;
 
 /**
  * Grow a sprite's alpha by `radius` pixels and paint it solid white: drawn

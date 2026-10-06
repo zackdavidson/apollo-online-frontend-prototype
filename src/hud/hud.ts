@@ -64,6 +64,8 @@ export interface HudInfo {
   readonly pixelScope: PixelScope;
   readonly beacons: ReadonlyArray<{ readonly x: number; readonly z: number; readonly colour: string }>;
   readonly hazards: ReadonlyArray<{ readonly x: number; readonly z: number; readonly radius: number; readonly colour: string }>;
+  /** Items lying on the ground, for the maps' red dots. */
+  readonly drops: ReadonlyArray<{ readonly x: number; readonly z: number; readonly kind: string; readonly label: string }>;
   /** Map-authored labels and icons. */
   readonly markers: readonly ResolvedMarker[];
   readonly mapName: string;
@@ -629,6 +631,19 @@ export class FlightHud {
     for (const rock of info.rocks) {
       const [mx, mz] = toMap(rock.x, rock.z);
       context.fillRect(mx - dot / 2, mz - dot / 2, dot, dot);
+    }
+    // Items on the ground: red dots on the local minimap only, old-school style. The sector map stays clean.
+    if (!expanded) {
+      for (const drop of info.drops) {
+        const [dx, dz] = toMap(drop.x, drop.z);
+        context.fillStyle = '#ff3b3b';
+        context.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+        context.lineWidth = 1.5;
+        context.beginPath();
+        context.arc(dx, dz, 3, 0, Math.PI * 2);
+        context.fill();
+        context.stroke();
+      }
     }
     context.fillStyle = 'rgba(200, 180, 140, 0.8)';
     for (const [px, pz] of info.planets) {

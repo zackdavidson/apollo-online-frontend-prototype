@@ -4,7 +4,7 @@ import type { ItemSpriteAtlas } from './itemSprites';
 
 const MAX_PICKUPS = 400;
 /** World-space size of a dropped item's sprite. */
-const SPRITE_SIZE = 1.9;
+const SPRITE_SIZE = 2.4;
 
 /**
  * Dropped items as billboard sprites of their item art, old-school style:
