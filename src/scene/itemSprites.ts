@@ -1,5 +1,6 @@
 import { CanvasTexture, Color, DirectionalLight, HemisphereLight, OrthographicCamera, SRGBColorSpace, Scene, Vector3, WebGLRenderTarget, type WebGLRenderer } from 'three';
 import type { Catalog } from '../catalog/catalog';
+import type { MaterialDefinition } from '../core/materials';
 import { meshBounds, type Bounds, type SurfaceMesh } from '../core/mesh';
 import { DEFAULT_COLOURS, type ShipColours } from '../core/palette';
 import { partMesh } from '../core/ship';
@@ -48,11 +49,12 @@ export class ItemSpriteAtlas {
   }
 
   /** A one-off portrait of any surface (a whole ship, say) as a data URL, framed like the item sprites. */
-  renderSurface(surface: SurfaceMesh, colours: ShipColours, framing: SpriteFraming = {}, size = 128): string {
+  renderSurface(surface: SurfaceMesh, colours: ShipColours, framing: SpriteFraming = {}, size = 128, material?: MaterialDefinition): string {
     let url = '';
     this.withStage(size, (stage) => {
       const mesh = new ShipMesh(colours);
       mesh.setSurface(surface);
+      if (material) mesh.setMaterial(material);
       url = stage.render(mesh, meshBounds(surface), framing).toDataURL('image/png');
       mesh.dispose();
     });

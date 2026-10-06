@@ -1,4 +1,5 @@
 import type { Catalog } from '../catalog/catalog';
+import { HULL_MATERIALS, materialAssetPath, type MaterialId } from '../core/materials';
 import { COLOUR_PRESETS, type ColourPreset, type ShipColours } from '../core/palette';
 import type { AssembledShip } from '../core/ship';
 import { STAT_KEYS, type AttachmentId, type HullId, type ShipStats, type SlotDefinition, type SlotId } from '../core/types';
@@ -9,6 +10,7 @@ export interface PanelActions {
   selectHull(hullId: HullId): void;
   setColours(colours: Partial<ShipColours>): void;
   applyPreset(preset: ColourPreset): void;
+  setMaterial(materialId: MaterialId): void;
   fitAttachment(slotId: SlotId, attachmentId: AttachmentId | null): void;
   randomiseLoadout(): void;
   randomiseColours(): void;
@@ -48,6 +50,7 @@ export class BuilderPanel {
   private readonly trimInput: HTMLInputElement;
   private readonly mainHex: HTMLElement;
   private readonly trimHex: HTMLElement;
+  private readonly materialButtons = new Map<MaterialId, HTMLButtonElement>();
   private readonly slotList: HTMLElement;
   private readonly slotSelects = new Map<SlotId, HTMLSelectElement>();
   private readonly slotRows = new Map<SlotId, HTMLElement>();
@@ -106,6 +109,7 @@ export class BuilderPanel {
     if (this.trimInput.value !== state.colours.trim) this.trimInput.value = state.colours.trim;
     this.mainHex.textContent = state.colours.main;
     this.trimHex.textContent = state.colours.trim;
+    for (const [materialId, button] of this.materialButtons) button.classList.toggle('active', materialId === state.material);
 
     if (this.renderedHullId !== hull.id) {
       this.rebuildSlotList(hull.slots);
@@ -170,10 +174,23 @@ export class BuilderPanel {
       swatch.addEventListener('click', () => this.actions.applyPreset(preset));
       return swatch;
     });
+    const materialButtons = HULL_MATERIALS.map((material) => {
+      const thumb = el('span', { className: 'material-thumb' });
+      if (material.texture) thumb.style.backgroundImage = `url(${import.meta.env.BASE_URL}${materialAssetPath(material.texture)})`;
+      const button = el('button', { className: 'material-button', type: 'button', title: material.description }, [
+        thumb,
+        el('span', { className: 'material-name', text: material.name }),
+      ]);
+      button.addEventListener('click', () => this.actions.setMaterial(material.id));
+      this.materialButtons.set(material.id, button);
+      return button;
+    });
     return section('Colours', [
       colourRow('Main', this.mainInput, this.mainHex),
       colourRow('Trim', this.trimInput, this.trimHex),
       el('div', { className: 'swatch-row' }, presetButtons),
+      el('div', { className: 'material-label muted', text: 'Material (over the main colour)' }),
+      el('div', { className: 'material-row' }, materialButtons),
     ]);
   }
 

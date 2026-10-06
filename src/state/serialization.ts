@@ -1,4 +1,5 @@
 import type { Catalog } from '../catalog/catalog';
+import { DEFAULT_MATERIAL_ID, isMaterialId } from '../core/materials';
 import { isHexColour } from '../core/palette';
 import { isCompatible } from '../core/types';
 import type { ShipState } from './shipState';
@@ -10,6 +11,8 @@ interface SerializedShip {
   readonly hull: string;
   readonly main: string;
   readonly trim: string;
+  /** Material id; absent in codes from before materials existed, which read as plain. */
+  readonly mat?: string;
   readonly fit: Record<string, string>;
 }
 
@@ -20,6 +23,7 @@ export function encodeShipState(state: ShipState): string {
     hull: state.hullId,
     main: state.colours.main,
     trim: state.colours.trim,
+    mat: state.material,
     fit: { ...state.fitted },
   };
   return toBase64Url(JSON.stringify(payload));
@@ -54,7 +58,8 @@ export function decodeShipState(code: string, catalog: Catalog): ShipState | nul
     }
   }
 
-  return { hullId: hull.id, colours: { main: parsed['main'], trim: parsed['trim'] }, fitted };
+  const material = isMaterialId(parsed['mat']) ? parsed['mat'] : DEFAULT_MATERIAL_ID;
+  return { hullId: hull.id, colours: { main: parsed['main'], trim: parsed['trim'] }, material, fitted };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

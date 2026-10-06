@@ -4,6 +4,9 @@
  */
 export type PaletteRole = 'main' | 'trim' | 'dark' | 'metal' | 'glass' | 'glow' | 'plume';
 
+/** Every role in a fixed order, so renderers can refer to a role by index. */
+export const PALETTE_ROLES: readonly PaletteRole[] = ['main', 'trim', 'dark', 'metal', 'glass', 'glow', 'plume'];
+
 /** The two user-customisable colours of a ship, as CSS hex strings. */
 export interface ShipColours {
   readonly main: string;

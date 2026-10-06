@@ -31,7 +31,9 @@ src/
   core/        Ship model: primitives, meshes, palette, assembly. No DOM, no Three.js.
   catalog/     Hand-authored hulls and attachments, validated at startup.
   state/       Hangar build state, reducers, share codes.
-  render/      Three.js ship mesh used by both the hangar and the flight scene.
+  render/      Three.js ship mesh used by both the hangar and the flight scene;
+               hullMaterial.ts is the tiled-overlay shader behind hull materials.
+  core/materials.ts  Hull material catalog: tiles, scale, scroll, glow. Plain data.
   ui/          Hangar side panel (plain DOM).
 
   game/        PURE SIMULATION. No rendering, no DOM; runs headless.
@@ -59,6 +61,7 @@ src/
   main.ts      Hangar wiring plus entering/leaving a flight session.
   tools/
     generate-space-assets.py  Renders the background PNGs (pure Python, no dependencies)
+    generate-materials.py     Renders the seamless hull material tiles (same, no dependencies)
 ```
 
 ### The three layers in one frame
@@ -255,6 +258,46 @@ a pooled quad per drop), and the inventory tab shows the same images as
 icons with stack counts, so a stone on the floor, a stone in your hold and
 the stone a server describes are all the same item definition.
 
+### Hull materials: tiled finishes over the paint
+
+A hull can wear a material as well as paint: a seamless tile from
+`public/assets/materials/` wrapped over its main surfaces. The catalog is
+`HULL_MATERIALS` in `src/core/materials.ts`; each entry is plain data, the
+shape a server could send (there is a `parseMaterialDefinition` for JSON):
+
+| field | meaning |
+| --- | --- |
+| `texture` | the colour tile; `null` paints the hull colour alone |
+| `scale` | world units per repeat of the tile |
+| `scroll` | drift in repeats per second along the tile's two axes; `[0, 0]` holds still (lava creeps) |
+| `roles` | which painted surfaces it covers: `main` by default; add `trim`, `dark` or `metal` |
+| `glow` | optional: a greyscale mask tile plus colour, intensity, `pulse` (breathing) and `drift` (a second copy of the mask moving under the crust) |
+
+The tile is not pasted on as a skin. It is an **overlay on the hull colour**:
+mid grey leaves the paint as it is, lighter texels brighten it, darker texels
+shade it and coloured texels tint it. So one stone tile makes a blue stone
+ship or a red one, and the colour pickers keep working with a material on.
+Obsidian is dark with purple veins whatever the paint, because its tile is
+dark with purple veins; lava's crust shows the paint faintly through its
+cracks.
+
+The hull meshes have no UVs (they are generated triangle soup), so the shader
+projects the tile along the three object axes and blends by the surface
+normal (triplanar), in object space, so the pattern rides with the ship. It
+is the ordinary lit material with a few lines spliced in, one program for
+every ship: switching material only changes uniforms, and a crowd of lava
+raiders costs no more than a crowd of painted ones.
+
+Three finishes ship: `stone` (flagstones), `obsidian` (dark glass, faint
+purple glow) and `lava` (cooling crust; the cracks glow, pulse, and the whole
+flow creeps along the hull). Pick one in the hangar's Colours section. It is
+part of the build, so share codes carry it (`mat`) and it flies with you;
+NPC spawns take `material` too (the Raider wears obsidian).
+
+Make your own: `python3 tools/generate-materials.py` regenerates the tiles
+(256 px, pure Python), or drop any seamless PNG into the folder, add an
+entry to the catalog, and give it a glow mask if parts of it should shine.
+
 ### Stances: friendly until provoked
 
 Every ship has a `stance`, `friendly` or `hostile` (`ShipSpec.stance`,
@@ -291,13 +334,14 @@ hostile, and `invulnerable: true` so nothing damages him: he has no shield,
 no bars over his name, and shots, rams and gas pass without effect) with a
 five-line briefing.
 
-The flight HUD is now laid out like a classic MMO: minimap, status lines
-(position, heading, speed, kills, cargo, nearest enemy, comet) and the
-settings buttons in a column top-right; a chat panel bottom-left (Enter
-focuses the input, Enter sends, `/help` opens the controls panel, and
-anything you say floats above your ship for five seconds); weapons and
-prompts bottom-centre. The old top-left readout and bottom-left control
-hints are gone; the controls live behind the Controls button and `/help`.
+The flight HUD is now laid out like a classic MMO: minimap with a settings
+cog on its frame and the ship frame under it top-right; a chat panel
+bottom-left (Enter focuses the input, Enter sends, `/help` opens the
+settings window on its Controls page, and anything you say floats above
+your ship for five seconds); weapons and prompts bottom-centre. The old
+top-left readout and bottom-left control hints are gone; camera, pixelation,
+the controls list and the way back to the hangar live in the settings
+window, which the cog, Esc (with nothing else open) and `/help` bring up.
 Flight keys are ignored while the chat input has focus.
 
 ### Interfaces: slots, ids and server commands
@@ -318,7 +362,7 @@ slot:
 | -------------- | ---------------------------------- | ---------------- |
 | `chat`         | bottom-left                        | Chat (0)         |
 | `inventory`    | bottom-right, tabbed side panel    | Side panel (1)   |
-| `main`         | centre, over the other interfaces  | Map (2), Controls (3) |
+| `main`         | centre, over the other interfaces  | Map (2), Settings (3) |
 | `overlay`      | top-left, under everything         | Panel (4)        |
 | `full_overlay` | whole screen, over everything      | Notice (5)       |
 
@@ -340,12 +384,27 @@ network layer would call.
 
 The **side panel** (`InventoryInterface`) is a strip of tabs over a content
 area, like the old RuneScape inventory. A tab is `{ id, label, icon?,
-Component }`, a React component that may read the HUD readout and actions
-through `useServices()`. The HUD defines four (Cargo, Ship, Settings,
-Controls in `interfaces/tabs.tsx`); add your own with
+Component, default? }`, a React component that may read the HUD readout and
+actions through `useServices()`. The HUD defines three (Ship, Cargo,
+Talents in `interfaces/tabs.tsx`; Cargo opens first); add your own with
 `hud.inventory.addTab(...)`, replace them with `setTabs`, or switch with
 `selectTab`. Esc closes the topmost layer: a full overlay first, then the
-main window, then leaves flight.
+main window; with nothing open it brings up the settings window (3), whose
+Back to hangar button leaves flight. The settings window takes a `tab` prop
+(`settings` or `controls`).
+
+The **Talents tab** is a skills sheet in the old-school layout: a grid of
+pixel-art icons with current/base level beside each, the total level
+underneath, and a tooltip for whatever is hovered. `src/game/talents.ts` holds
+only what the client needs, the definitions (id, name, description, icon);
+levels are a `TalentStanding { id, level, base }` per talent, the shape a
+server sends, and until there is one `freshTalents()` stands everything at
+1/1. Nothing trains yet. The eleven talents follow the economy design:
+gathering (Mining, Gas Harvesting, Xenobiology, Hunting, Salvaging),
+processing and crafting (Refining, Chemistry, Engineering) and combat
+(Gunnery, Piloting, Slayer); each definition carries its `group` and a
+blurb of what it feeds. `tools/generate-talent-icons.py` draws the icons
+(16 px glyphs scaled ×4).
 
 ### Toward online play
 
@@ -403,7 +462,8 @@ main window, then leaves flight.
 - **Controls.** W/S thrust and reverse, A/D strafe (D is the pilot's right
   on screen), the mouse aims the nose, the left button fires the selected
   weapon group, 1/2/3 pick the group, Shift boosts. Wheel zooms, Q/E tilt
-  the camera, C toggles perspective / orthographic, Esc returns to the hangar.
+  the camera, C toggles perspective / orthographic, Esc opens the settings
+  window (closing anything open first); Back to hangar lives there.
 - **Coordinates note.** With Y up and the nose along +Z in a right-handed
   frame, starboard is -X, so screen-right is -X in flight. Hull slots are
   labelled accordingly. Everything the player sees (HUD readout, minimap,
@@ -602,5 +662,9 @@ The target is many ships on screen at once (a battle of twenty or more).
   Author the starboard side and set `mirror: true` for anything symmetric.
   Slot positions are points on the surface; the tests will tell you if a
   mount floats or two defaults collide.
+- New hull material: a seamless PNG in `public/assets/materials/` (and a
+  greyscale glow mask if it shines) plus an entry in `core/materials.ts`:
+  scale, scroll, roles, glow. `tools/generate-materials.py` shows how the
+  built-in tiles are made.
 - New palette role or stat: extend the union in `core/palette.ts` /
   `core/types.ts`; the compiler will point at every place that needs updating.

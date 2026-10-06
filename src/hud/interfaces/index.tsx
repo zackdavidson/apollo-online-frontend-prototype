@@ -7,7 +7,7 @@ export { ChatController } from './chat';
 export type { ChatMessage, DialogueLine, DialogueScript } from './chat';
 export { ChatInterface } from './ChatInterface';
 export { InventoryInterface } from './InventoryInterface';
-export { HelpInterface, MapInterface, NoticeInterface, PanelInterface } from './panels';
+export { MapInterface, NoticeInterface, PanelInterface, SettingsInterface } from './panels';
 export { INTERFACE_SLOTS, InterfaceStore, parseInterfaceCommand } from './store';
 export type { InterfaceCommand, InterfaceDefinition, InterfaceInfo, InterfaceSlot } from './store';
 export { ServicesContext, useServices, useStoreValue } from './context';
@@ -15,7 +15,7 @@ export type { HudServices, InterfaceView, InterfaceViewProps, InventoryTab, MapW
 export { ValueStore } from './valueStore';
 
 /** Well-known interface ids. The chat is 0 by decree; the rest follow. */
-export const INTERFACE_IDS = { chat: 0, inventory: 1, map: 2, help: 3, panel: 4, notice: 5 } as const;
+export const INTERFACE_IDS = { chat: 0, inventory: 1, map: 2, settings: 3, panel: 4, notice: 5 } as const;
 
 /**
  * Mounts the React interface tree into the HUD and exposes the store's

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createDefaultCatalog } from '../catalog/catalog';
 import { decodeShipState, encodeShipState } from './serialization';
-import { createShipState, withAttachment, withHull, withRandomLoadout } from './shipState';
+import { createShipState, withAttachment, withHull, withMaterial, withRandomLoadout } from './shipState';
 
 const catalog = createDefaultCatalog();
 const fighter = catalog.getHull('hull-fighter');
@@ -75,5 +75,26 @@ describe('serialization', () => {
     expect(decodeShipState(btoa(JSON.stringify({ v: 2, hull: 'hull-fighter' })), catalog)).toBeNull();
     expect(decodeShipState(btoa(JSON.stringify({ v: 1, hull: 'nope', main: '#000000', trim: '#ffffff' })), catalog)).toBeNull();
     expect(decodeShipState('', catalog)).toBeNull();
+  });
+});
+
+describe('hull material', () => {
+  const catalog = createDefaultCatalog();
+  const hull = catalog.hulls[0]!;
+
+  it('starts plain, changes with withMaterial and survives a share code', () => {
+    const state = createShipState(hull);
+    expect(state.material).toBe('plain');
+    const lava = withMaterial(state, 'lava');
+    expect(lava.material).toBe('lava');
+    expect(withMaterial(lava, 'lava')).toBe(lava);
+    expect(decodeShipState(encodeShipState(lava), catalog)).toEqual(lava);
+  });
+
+  it('reads codes from before materials, and unknown materials, as plain', () => {
+    const old = btoa(JSON.stringify({ v: 1, hull: hull.id, main: '#112233', trim: '#445566', fit: {} }));
+    expect(decodeShipState(old, catalog)?.material).toBe('plain');
+    const odd = btoa(JSON.stringify({ v: 1, hull: hull.id, main: '#112233', trim: '#445566', fit: {}, mat: 'cheese' }));
+    expect(decodeShipState(odd, catalog)?.material).toBe('plain');
   });
 });

@@ -1,4 +1,5 @@
 import { BackSide, BufferAttribute, BufferGeometry, Group, Mesh, MeshBasicMaterial } from 'three';
+import { DEFAULT_MATERIAL_ID, materialFor, type MaterialId } from '../core/materials';
 import { partitionSurfaceMesh, type SurfaceMesh } from '../core/mesh';
 import { EMISSIVE_ROLES, type ShipColours } from '../core/palette';
 import { ShipMesh } from '../render/shipMesh';
@@ -7,6 +8,8 @@ import { ShieldShell } from './shieldShell';
 export interface ShipVisualSpec {
   readonly surface: SurfaceMesh;
   readonly colours: ShipColours;
+  /** Finish over the paint (core/materials.ts); plain when omitted. */
+  readonly material?: MaterialId | undefined;
   /** Outline and label colour. */
   readonly accent: string;
   /** Hit radius; sizes the shield shell. */
@@ -24,7 +27,7 @@ export class ShipActor {
   private shieldFraction = 1;
 
   constructor(readonly spec: ShipVisualSpec) {
-    this.mesh = new ShipMesh(spec.colours);
+    this.mesh = new ShipMesh(spec.colours, materialFor(spec.material ?? DEFAULT_MATERIAL_ID));
     this.mesh.setSurface(spec.surface);
     this.shell = new ShieldShell(spec.radius, SHIELD_COLOUR);
     // Inverted hull of the lit surface, slightly enlarged, shown while hovered.

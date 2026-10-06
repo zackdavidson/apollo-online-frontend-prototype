@@ -1,6 +1,5 @@
 import {
   BufferGeometry,
-  DoubleSide,
   EdgesGeometry,
   Group,
   LineBasicMaterial,
@@ -9,20 +8,23 @@ import {
   MeshBasicMaterial,
   MeshStandardMaterial,
 } from 'three';
+import { DEFAULT_MATERIAL_ID, materialFor, type MaterialDefinition } from '../core/materials';
 import { emptySurfaceMesh, partitionSurfaceMesh, type SurfaceMesh } from '../core/mesh';
 import { EMISSIVE_ROLES, colourForRole, type PaletteRole, type ShipColours } from '../core/palette';
 import { createGlowMaterial, type GlowUniforms } from './glowMaterial';
+import { applyHullMaterial, createHullMaterial, hullMaps, hullMapsLoaded, hullMapsReady, type HullUniforms } from './hullMaterial';
 import { buildGeometry, repaintGeometry } from './meshData';
 
 /** Crease angle in degrees above which the optional outline draws an edge. */
 const OUTLINE_THRESHOLD_DEGREES = 22;
 
 /**
- * Renderable ship: one lit mesh for hull materials, one unlit translucent
- * mesh for glow (engine plumes, lights), and an optional crease outline. Two draw
- * calls per ship regardless of part count, which keeps a crowded battle
- * cheap. Rebuilding the shape and repainting the colours are separate so
- * colour tweaks never re-tessellate.
+ * Renderable ship: one lit mesh for the hull (paint plus an optional tiled
+ * material), one unlit translucent mesh for glow (engine plumes, lights), and
+ * an optional crease outline. Two draw calls per ship regardless of part
+ * count, which keeps a crowded battle cheap. Rebuilding the shape, repainting
+ * the colours and swapping the material are separate so none of the cheap
+ * tweaks re-tessellate.
  */
 export class ShipMesh extends Group {
   private litData: SurfaceMesh = emptySurfaceMesh();
@@ -31,15 +33,17 @@ export class ShipMesh extends Group {
   private readonly glowMesh: Mesh<BufferGeometry, MeshBasicMaterial>;
   private readonly outline: LineSegments<BufferGeometry, LineBasicMaterial>;
   private readonly glowUniforms: GlowUniforms;
+  private readonly hullUniforms: HullUniforms;
   private colours: ShipColours;
+  private material: MaterialDefinition;
 
-  constructor(colours: ShipColours) {
+  constructor(colours: ShipColours, material: MaterialDefinition = materialFor(DEFAULT_MATERIAL_ID)) {
     super();
     this.colours = colours;
-    this.litMesh = new Mesh(
-      new BufferGeometry(),
-      new MeshStandardMaterial({ vertexColors: true, roughness: 0.6, metalness: 0.2, side: DoubleSide }),
-    );
+    this.material = material;
+    const hull = createHullMaterial();
+    this.hullUniforms = hull.uniforms;
+    this.litMesh = new Mesh(new BufferGeometry(), hull.material);
     const glow = createGlowMaterial();
     this.glowUniforms = glow.uniforms;
     this.glowMesh = new Mesh(new BufferGeometry(), glow.material);
@@ -49,6 +53,7 @@ export class ShipMesh extends Group {
     );
     this.outline.visible = false;
     this.add(this.litMesh, this.glowMesh, this.outline);
+    this.setMaterial(material);
   }
 
   setSurface(surface: SurfaceMesh): void {
@@ -70,6 +75,25 @@ export class ShipMesh extends Group {
     repaintGeometry(this.glowMesh.geometry, this.glowData, colourOf);
   }
 
+  /**
+   * Dress the painted surfaces in a material; the plain finish takes it off
+   * again. Tiles that are still downloading show up once they arrive.
+   */
+  setMaterial(definition: MaterialDefinition): void {
+    this.material = definition;
+    const maps = hullMaps(definition);
+    const apply = (): void => {
+      if (this.material !== definition) return;
+      applyHullMaterial(this.hullUniforms, definition, maps, hullMapsLoaded(definition));
+    };
+    apply();
+    if (!hullMapsLoaded(definition)) void hullMapsReady(definition).then(apply);
+  }
+
+  get materialDefinition(): MaterialDefinition {
+    return this.material;
+  }
+
   setOutlineVisible(visible: boolean): void {
     this.outline.visible = visible;
   }
@@ -79,9 +103,10 @@ export class ShipMesh extends Group {
     this.glowUniforms.uThrottle.value = throttle;
   }
 
-  /** Advance the plume flicker; call once per frame with elapsed seconds. */
+  /** Advance the plume flicker and the material's drift and pulse; call once per frame with elapsed seconds. */
   update(timeSeconds: number): void {
     this.glowUniforms.uTime.value = timeSeconds;
+    this.hullUniforms.uHullTime.value = timeSeconds;
   }
 
   /** Triangles currently on the GPU for this ship, for the stats readout. */

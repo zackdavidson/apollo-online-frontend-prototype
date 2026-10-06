@@ -1,8 +1,9 @@
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { RESOURCES, RESOURCE_KINDS, inventoryValue } from '../../game/loot';
-import { PIXEL_LEVELS, type PixelScope } from '../../scene/pixelate';
+import { talentAssetPath, totalLevel } from '../../game/talents';
 import type { HudActions, HudInfo } from '../hud';
 import { useServices, useStoreValue, type InventoryTab } from './context';
-import { INTERFACE_IDS } from './index';
 
 /** Slots shown in the hold, filled first, the rest empty, like an old-school inventory. */
 const INVENTORY_SLOTS = 16;
@@ -111,55 +112,64 @@ export function ShipTab() {
   );
 }
 
-export function SettingsTab() {
-  const { actions, interfaces } = useServices<HudInfo, HudActions>();
+/**
+ * The talents tab: a skills grid in the old-school style, icon on the left
+ * and current/base level on the right, with the total at the bottom and a
+ * tooltip for whatever is hovered. Levels come from the HUD readout, so a
+ * server can raise them later; nothing trains them yet.
+ */
+export function TalentsTab() {
   const info = useHudInfo();
+  const [hover, setHover] = useState<{ id: string; x: number; y: number } | null>(null);
+  const talents = info?.talents ?? [];
+  const shown = hover ? (talents.find((talent) => talent.id === hover.id) ?? null) : null;
   return (
-    <div className="inv-settings">
-      <button type="button" onClick={() => actions.onToggleCamera()}>
-        Camera: {info?.mode ?? 'perspective'}
-      </button>
-      <select title="Pixelation level (P)" value={String(info?.pixelLevel ?? 0)} onChange={(event) => actions.onPixelLevel(Number(event.target.value))}>
-        {PIXEL_LEVELS.map((level, index) => (
-          <option key={level.label} value={String(index)}>
-            Pixels: {level.label}
-          </option>
+    <>
+      <div className="talent-grid">
+        {talents.map((talent, index) => (
+          <div
+            key={talent.id}
+            className={`talent-cell${hover?.id === talent.id ? ' hovered' : ''}`}
+            data-component-id={index}
+            data-talent={talent.id}
+            onPointerEnter={(event) => setHover({ id: talent.id, x: event.clientX, y: event.clientY })}
+            onPointerMove={(event) => setHover({ id: talent.id, x: event.clientX, y: event.clientY })}
+            onPointerLeave={() => setHover((current) => (current?.id === talent.id ? null : current))}
+          >
+            <img className="talent-icon" src={`${import.meta.env.BASE_URL}${talentAssetPath(talent.icon)}`} alt={talent.name} draggable={false} />
+            <span className="talent-levels">
+              <span className="talent-level">{talent.level}</span>
+              <span className="talent-slash">/</span>
+              <span className="talent-base">{talent.base}</span>
+            </span>
+          </div>
         ))}
-      </select>
-      <select title="What gets pixelated (O)" value={info?.pixelScope ?? '3d'} onChange={(event) => actions.onPixelScope(event.target.value as PixelScope)}>
-        <option value="3d">3D only</option>
-        <option value="all">Everything</option>
-      </select>
-      <button type="button" onClick={() => interfaces.toggle(INTERFACE_IDS.help)}>
-        Controls
-      </button>
-      <button type="button" className="primary" onClick={() => actions.onExit()}>
-        Back to hangar (Esc)
-      </button>
-    </div>
+      </div>
+      <div className="talent-total">
+        <span>Total level</span>
+        <b>{totalLevel(talents)}</b>
+      </div>
+      {shown && hover
+        ? createPortal(
+            // On the body, not in the panel: the panel clips its overflow and would cut the tooltip off.
+            <div className="talent-tooltip" style={{ right: window.innerWidth - hover.x + 12, bottom: window.innerHeight - hover.y + 12 }}>
+              <div className="talent-tooltip-name">
+                {shown.name} <span className="muted talent-tooltip-group">· {shown.group}</span>
+              </div>
+              <div>{shown.description}</div>
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }
 
-export function ControlsTab() {
-  const { controls } = useServices();
-  return (
-    <dl className="inv-controls">
-      {controls.map(([key, what]) => (
-        <div key={key} style={{ display: 'contents' }}>
-          <dt>{key}</dt>
-          <dd>{what}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-/** The side panel's default tabs: cargo, ship, settings and controls. Games add their own through the tabs store. */
+/** The side panel's default tabs: ship, cargo and talents; cargo opens first. Games add their own through the tabs store. */
 export function defaultTabs(): InventoryTab[] {
   return [
-    { id: 0, label: 'Cargo', icon: '◆', Component: CargoTab },
-    { id: 1, label: 'Ship', icon: '➤', Component: ShipTab },
-    { id: 2, label: 'Settings', icon: '⚙', Component: SettingsTab },
-    { id: 3, label: 'Controls', icon: '?', Component: ControlsTab },
+    { id: 0, label: 'Ship', icon: '➤', Component: ShipTab },
+    { id: 1, label: 'Cargo', icon: '◆', Component: CargoTab, default: true },
+    { id: 2, label: 'Talents', icon: '✦', Component: TalentsTab },
   ];
 }

@@ -1,13 +1,14 @@
 import { clear, el } from '../ui/dom';
 import type { CameraMode } from '../scene/cameraRig';
 import type { Inventory, ResourceKind } from '../game/loot';
+import type { TalentReadout } from '../game/talents';
 import { fromMapCoords, headingBearing, toMapCoords, worldVectorToMap } from '../game/mapCoords';
 import type { ResolvedMarker } from '../game/map';
 import { drawMapIcon } from './mapIcons';
 import {
   ChatController,
   ChatInterface,
-  HelpInterface,
+  SettingsInterface,
   INTERFACE_IDS,
   InterfaceManager,
   InterfaceStore,
@@ -77,6 +78,8 @@ export interface HudInfo {
   readonly waypoint: { readonly x: number; readonly z: number } | null;
   /** How far the warp drive reaches from the ship, in world units. */
   readonly warpRange: number;
+  /** The player's talents for the side panel; every one at 1/1 until a server says otherwise. */
+  readonly talents: readonly TalentReadout[];
   /** The shooting star while it is in the sector. */
   readonly comet: { readonly x: number; readonly z: number; readonly vx: number; readonly vz: number; readonly hp: number; readonly maxHp: number } | null;
 }
@@ -108,7 +111,7 @@ const CONTROLS: ReadonlyArray<readonly [string, string]> = [
   ['J', 'engage the warp drive towards the waypoint (or use the button on the map)'],
   ['Wheel', 'zoom · Q / E tilt camera · C camera mode'],
   ['P / O', 'pixelation level · pixelation scope'],
-  ['Esc', 'close dialogue, help or map · then back to the hangar'],
+  ['Esc', 'close what is open · otherwise the settings window (camera, pixels, controls, back to the hangar)'],
 ];
 
 const MINIMAP_SIZE = 220;
@@ -225,7 +228,7 @@ export class FlightHud {
     this.store.register({ id: INTERFACE_IDS.chat, slot: 'chat', name: 'Chat', view: ChatInterface });
     this.store.register({ id: INTERFACE_IDS.inventory, slot: 'inventory', name: 'Side panel', view: InventoryInterface });
     this.store.register({ id: INTERFACE_IDS.map, slot: 'main', name: 'Map', view: MapInterface });
-    this.store.register({ id: INTERFACE_IDS.help, slot: 'main', name: 'Controls', view: HelpInterface });
+    this.store.register({ id: INTERFACE_IDS.settings, slot: 'main', name: 'Settings', view: SettingsInterface });
     this.store.register({ id: INTERFACE_IDS.panel, slot: 'overlay', name: 'Panel', view: PanelInterface });
     this.store.register({ id: INTERFACE_IDS.notice, slot: 'full_overlay', name: 'Notice', view: NoticeInterface });
     // Only the expanded map takes clicks: they set the waypoint. The small map is read-only.
@@ -240,6 +243,8 @@ export class FlightHud {
     sizeCanvas(this.minimap, MINIMAP_SIZE);
     const expand = el('button', { type: 'button', className: 'hud-map-expand', text: '⤢', title: 'Expand map (M)' });
     expand.addEventListener('click', () => this.setMapExpanded(!this.mapExpanded));
+    const settingsButton = el('button', { type: 'button', className: 'hud-map-settings', text: '⚙', title: 'Settings (Esc)' });
+    settingsButton.addEventListener('click', () => (this.settingsOpen ? this.interfaces.close(INTERFACE_IDS.settings) : this.openSettings()));
     this.message = el('div', { className: 'hud hud-message' });
     this.message.style.display = 'none';
     this.hazardVignette = el('div', { className: 'hazard-vignette' });
@@ -259,7 +264,7 @@ export class FlightHud {
       this.waypointIndicator.root,
       this.weaponBar,
       this.prompt,
-      el('div', { className: 'hud hud-right-column' }, [el('div', { className: 'minimap-wrap' }, [this.minimap, expand]), this.status]),
+      el('div', { className: 'hud hud-right-column' }, [el('div', { className: 'minimap-wrap' }, [this.minimap, settingsButton, expand]), this.status]),
     );
     const services: HudServices<HudInfo, HudActions> = { interfaces: this.store, chat: this.chat, tabs: this.tabs, info: this.info, itemIcons: this.itemIcons, actions, controls: CONTROLS, map: this.mapBridge, menu: this.menu };
     this.interfaces = new InterfaceManager(root, this.store, services as HudServices);
@@ -268,13 +273,13 @@ export class FlightHud {
     this.interfaces.open(INTERFACE_IDS.inventory);
   }
 
-  get helpVisible(): boolean {
-    return this.interfaces.isOpen(INTERFACE_IDS.help);
+  get settingsOpen(): boolean {
+    return this.interfaces.isOpen(INTERFACE_IDS.settings);
   }
 
-  setHelpVisible(visible: boolean): void {
-    if (visible) this.interfaces.open(INTERFACE_IDS.help);
-    else this.interfaces.close(INTERFACE_IDS.help);
+  /** Open the settings window, on its Controls page if asked. */
+  openSettings(tab: 'settings' | 'controls' = 'settings'): void {
+    this.interfaces.open(INTERFACE_IDS.settings, { tab });
   }
 
   get menuOpen(): boolean {

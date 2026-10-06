@@ -1,4 +1,5 @@
 import type { Catalog } from '../catalog/catalog';
+import { DEFAULT_MATERIAL_ID, type MaterialId } from '../core/materials';
 import { DEFAULT_COLOURS, type ShipColours } from '../core/palette';
 import { assembleShip, type AssembledShip, type FittedPart } from '../core/ship';
 import { isCompatible, type AttachmentId, type HullDefinition, type HullId, type SlotId } from '../core/types';
@@ -7,6 +8,8 @@ import { isCompatible, type AttachmentId, type HullDefinition, type HullId, type
 export interface ShipState {
   readonly hullId: HullId;
   readonly colours: ShipColours;
+  /** Finish worn over the paint; see core/materials.ts. */
+  readonly material: MaterialId;
   /** Attachment fitted per slot id. A missing key means the slot is empty. */
   readonly fitted: Readonly<Record<SlotId, AttachmentId>>;
 }
@@ -19,8 +22,8 @@ export function defaultLoadout(hull: HullDefinition): Record<SlotId, AttachmentI
   return fitted;
 }
 
-export function createShipState(hull: HullDefinition, colours: ShipColours = DEFAULT_COLOURS): ShipState {
-  return { hullId: hull.id, colours, fitted: defaultLoadout(hull) };
+export function createShipState(hull: HullDefinition, colours: ShipColours = DEFAULT_COLOURS, material: MaterialId = DEFAULT_MATERIAL_ID): ShipState {
+  return { hullId: hull.id, colours, material, fitted: defaultLoadout(hull) };
 }
 
 /** Switch hull, keeping colours and resetting the loadout to the hull's defaults. */
@@ -31,6 +34,10 @@ export function withHull(state: ShipState, hull: HullDefinition): ShipState {
 
 export function withColours(state: ShipState, colours: Partial<ShipColours>): ShipState {
   return { ...state, colours: { ...state.colours, ...colours } };
+}
+
+export function withMaterial(state: ShipState, material: MaterialId): ShipState {
+  return state.material === material ? state : { ...state, material };
 }
 
 /** Fit an attachment (or `null` to empty the slot). Incompatible fits are ignored. */

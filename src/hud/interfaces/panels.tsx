@@ -1,5 +1,7 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { PointerEvent } from 'react';
+import { PIXEL_LEVELS, type PixelScope } from '../../scene/pixelate';
+import type { HudActions, HudInfo } from '../hud';
 import { useServices, useStoreValue, type InterfaceViewProps } from './context';
 
 /** Interface 2, the expanded map: React owns the frame, the HUD draws into the canvas through the map bridge. */
@@ -46,24 +48,87 @@ export function MapInterface(_: InterfaceViewProps) {
   );
 }
 
-/** Interface 3, the controls list. */
-export function HelpInterface(_: InterfaceViewProps) {
-  const { controls } = useServices();
+/**
+ * Interface 3, the settings window: camera and pixelation on one page, the
+ * controls list on the other, and the way back to the hangar. Esc opens it
+ * when nothing else is open and closes it again; so does the cog on the
+ * minimap. Props: `tab` ('settings' | 'controls').
+ */
+export function SettingsInterface({ props, close }: InterfaceViewProps) {
+  const { controls, actions, info: infoStore } = useServices<HudInfo, HudActions>();
+  const info = useStoreValue(infoStore);
+  const requested: SettingsPage = props['tab'] === 'controls' ? 'controls' : 'settings';
+  const [page, setPage] = useState<SettingsPage>(requested);
+  useEffect(() => setPage(requested), [requested]);
+  const pages: ReadonlyArray<readonly [SettingsPage, string, string]> = [
+    ['settings', 'Settings', '⚙'],
+    ['controls', 'Controls', '?'],
+  ];
   return (
-    <div className="hud hud-help">
-      <h3>Controls</h3>
-      <dl>
-        {controls.map(([key, what]) => (
-          <>
-            <dt key={`${key}-k`}>{key}</dt>
-            <dd key={`${key}-d`}>{what}</dd>
-          </>
+    <div className="hud ui-settings ornate">
+      <div className="settings-header">
+        <span>Settings</span>
+        <button type="button" className="settings-close" title="Close (Esc)" data-component-id={0} onClick={() => close()}>
+          ×
+        </button>
+      </div>
+      <div className="inv-tabs settings-tabs">
+        {pages.map(([id, label, icon]) => (
+          <button key={id} type="button" className={`inv-tab${page === id ? ' active' : ''}`} data-component-id={id === 'settings' ? 1 : 2} onClick={() => setPage(id)}>
+            <span className="inv-tab-icon">{icon}</span>
+            <span className="inv-tab-label">{label}</span>
+          </button>
         ))}
-      </dl>
-      <p className="muted">Esc or the Controls tab closes this.</p>
+      </div>
+      {page === 'settings' ? (
+        <div className="settings-body">
+          <label className="settings-row">
+            <span>Camera</span>
+            <button type="button" onClick={() => actions.onToggleCamera()}>
+              {info?.mode ?? 'perspective'} · C switches
+            </button>
+          </label>
+          <label className="settings-row">
+            <span>Pixelation</span>
+            <select title="Pixelation level (P)" value={String(info?.pixelLevel ?? 0)} onChange={(event) => actions.onPixelLevel(Number(event.target.value))}>
+              {PIXEL_LEVELS.map((level, index) => (
+                <option key={level.label} value={String(index)}>
+                  {level.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="settings-row">
+            <span>Pixelate</span>
+            <select title="What gets pixelated (O)" value={info?.pixelScope ?? '3d'} onChange={(event) => actions.onPixelScope(event.target.value as PixelScope)}>
+              <option value="3d">3D only</option>
+              <option value="all">Everything</option>
+            </select>
+          </label>
+        </div>
+      ) : (
+        <dl className="inv-controls settings-controls">
+          {controls.map(([key, what]) => (
+            <div key={key} style={{ display: 'contents' }}>
+              <dt>{key}</dt>
+              <dd>{what}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      <div className="settings-actions">
+        <button type="button" data-component-id={3} onClick={() => close()}>
+          Resume
+        </button>
+        <button type="button" className="primary" data-component-id={4} onClick={() => actions.onExit()}>
+          Back to hangar
+        </button>
+      </div>
     </div>
   );
 }
+
+type SettingsPage = 'settings' | 'controls';
 
 /** Interface 4, a quiet text panel for the top-left overlay slot. Props: `title`, `lines` (array or string). */
 export function PanelInterface({ props }: InterfaceViewProps) {

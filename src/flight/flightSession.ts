@@ -1,4 +1,5 @@
 import { meshBounds, type SurfaceMesh } from '../core/mesh';
+import type { MaterialId } from '../core/materials';
 import type { ShipColours } from '../core/palette';
 import { COMBAT_TUNING } from '../game/combat';
 import { COMET_RESOURCES } from '../game/comet';
@@ -9,6 +10,7 @@ import { speedOf, type FlightInput } from '../game/flightController';
 import { optionsFor, type GameAction, type OptionContext } from '../game/actions';
 import { defaultItemCatalog } from '../game/items';
 import { RESOURCES } from '../game/loot';
+import { freshTalents, talentReadouts } from '../game/talents';
 import { defaultResolvedMap, type ResolvedMap } from '../game/map';
 import { formatMapCoords, toMapCoords } from '../game/mapCoords';
 import { shipToWorld, type WeaponMount } from '../game/projectiles';
@@ -34,6 +36,8 @@ export interface SessionShip {
   readonly hullName: string;
   readonly surface: SurfaceMesh;
   readonly colours: ShipColours;
+  /** Finish over the paint (core/materials.ts); plain when omitted. */
+  readonly material?: MaterialId | undefined;
   readonly weaponMounts: readonly WeaponMount[];
 }
 
@@ -138,6 +142,8 @@ export class FlightSession {
   private frameHandle = 0;
   private lastTime = performance.now();
   private disposed = false;
+  /** A fresh sheet until a server owns it: every talent 1/1. */
+  private readonly talents = talentReadouts(freshTalents());
 
   constructor(
     private readonly container: HTMLElement,
@@ -173,7 +179,7 @@ export class FlightSession {
       respawnDelay: COMBAT_TUNING.playerRespawnDelay,
       collectsLoot: true,
     });
-    this.scene.addShip(PLAYER_ID, { surface: player.surface, colours: player.colours, accent: player.colours.trim, radius });
+    this.scene.addShip(PLAYER_ID, { surface: player.surface, colours: player.colours, material: player.material, accent: player.colours.trim, radius });
     this.accents.set(PLAYER_ID, player.colours.trim);
     for (const npc of options.npcs ?? []) this.spawnNpc(npc);
 
@@ -193,12 +199,12 @@ export class FlightSession {
       },
     });
     this.input = new FlightInputTracker(this.scene.surface, {
-      // Esc closes whatever is open first (dialogue, help, map), then leaves flight.
+      // Esc closes whatever is open first (menu, dialogue, map, settings); with nothing open it brings up the settings window, which holds the way back to the hangar.
       onExit: () => {
         if (this.hud.menuOpen) this.hud.closeMenu();
         else if (this.autoMine) this.stopAutoMine('Stopped mining.');
         else if (this.hud.chat.dialogueOpen) this.hud.chat.closeDialogue();
-        else if (!this.hud.interfaces.closeTopmost()) options.onExit();
+        else if (!this.hud.interfaces.closeTopmost()) this.hud.openSettings();
       },
       // While talking, only Space (advance) and Esc (close) do anything.
       onToggleCamera: () => this.unlessTalking(() => this.scene.camera.toggleMode()),
@@ -220,7 +226,11 @@ export class FlightSession {
     this.scene.camera.snapTo(map.spawn.x, map.spawn.z);
     this.message = { text: map.name, until: 3 };
     this.hud.setItemIcons(this.scene.itemIconUrls());
-    this.hud.setShipPortrait(this.scene.shipPortrait(player.surface, player.colours));
+    this.hud.setShipPortrait(
+      this.scene.shipPortrait(player.surface, player.colours, player.material, (url) => {
+        if (!this.disposed) this.hud.setShipPortrait(url);
+      }),
+    );
     this.hud.chat.addMessage({ from: '', kind: 'system', text: `Welcome to ${map.name}. Press Enter to chat, Space to talk to ships, /help for controls.` });
     this.frameHandle = requestAnimationFrame(this.frame);
   }
@@ -250,7 +260,7 @@ export class FlightSession {
     if (npc.dialogue) this.dialogues.set(id, npc.dialogue);
     this.hostileAccents.set(id, npc.accent ?? NPC_ACCENT);
     const accent = npc.stance === 'friendly' ? FRIENDLY_ACCENT : (npc.accent ?? NPC_ACCENT);
-    this.scene.addShip(id, { surface: npc.surface, colours: npc.colours, accent, radius });
+    this.scene.addShip(id, { surface: npc.surface, colours: npc.colours, material: npc.material, accent, radius });
     this.accents.set(id, accent);
     return id;
   }
@@ -447,6 +457,7 @@ export class FlightSession {
       hazards: this.sim.hazards.hazards,
       drops: this.sim.loot.pickups.map((pickup) => ({ x: pickup.x, z: pickup.z, kind: pickup.kind, label: pickup.count > 1 ? `${RESOURCES[pickup.kind].label} × ${pickup.count}` : RESOURCES[pickup.kind].label })),
       markers: this.sim.map.markers,
+      talents: this.talents,
       mapName: this.sim.map.name,
       ship: { name: player.spec.name, hullName: player.spec.hullName, shield: player.vitals.shield, maxShield: player.vitals.maxShield, hull: player.vitals.hull, maxHull: player.vitals.maxHull },
       fitted: this.fittedItems(player),
@@ -680,7 +691,7 @@ export class FlightSession {
     if (text.startsWith('/')) {
       const [command = '', ...args] = text.slice(1).split(/\s+/);
       const say = (line: string): void => this.hud.chat.addMessage({ from: '', kind: 'system', text: line });
-      if (command.toLowerCase() === 'help') this.hud.setHelpVisible(true);
+      if (command.toLowerCase() === 'help') this.hud.openSettings('controls');
       else if (command.toLowerCase() === 'ui') {
         // Stands in for the server until there is one: the same commands it will send.
         const parsed = parseInterfaceCommand(args);

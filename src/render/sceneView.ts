@@ -14,6 +14,7 @@ import {
   WebGLRenderer,
 } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import type { MaterialDefinition } from '../core/materials';
 import type { Bounds, SurfaceMesh } from '../core/mesh';
 import type { ShipColours } from '../core/palette';
 import type { SlotDefinition, SlotId } from '../core/types';
@@ -105,6 +106,10 @@ export class SceneView {
 
   setColours(colours: ShipColours): void {
     this.shipMesh.setColours(colours);
+  }
+
+  setMaterial(material: MaterialDefinition): void {
+    this.shipMesh.setMaterial(material);
   }
 
   /**

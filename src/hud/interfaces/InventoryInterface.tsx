@@ -11,7 +11,7 @@ export function InventoryInterface({ props }: InterfaceViewProps) {
   const { tabs: tabStore } = useServices();
   const tabs = useStoreValue(tabStore);
   const requested = typeof props['tab'] === 'number' ? props['tab'] : null;
-  const [active, setActive] = useState<number | null>(requested ?? tabs[0]?.id ?? null);
+  const [active, setActive] = useState<number | null>(requested ?? tabs.find((tab) => tab.default)?.id ?? tabs[0]?.id ?? null);
 
   useEffect(() => {
     if (requested !== null) setActive(requested);

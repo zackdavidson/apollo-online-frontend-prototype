@@ -1479,6 +1479,8 @@ body[data-mode='flight'] .flight {
   text-transform: uppercase;
   color: rgba(200, 208, 220, 0.6);
   border-bottom: 1px solid rgba(60, 70, 90, 0.7);
+  cursor: pointer;
+  user-select: none;
 }
 
 .ui-menu-option {
@@ -2213,4 +2215,260 @@ body[data-mode='flight'] .flight {
 
 .tooltip-title {
   letter-spacing: 0.04em;
+}
+
+/* ---- hull materials: the hangar picker ---- */
+.material-label {
+  margin: 10px 0 4px;
+  font-size: 12px;
+}
+
+.material-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.material-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 4px;
+}
+
+.material-button.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.material-thumb {
+  display: block;
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #9aa3b0, #596271);
+  background-size: 64px 64px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.material-name {
+  font-size: 11px;
+}
+
+/* ---- settings cog on the minimap, the settings window, the talents tab ---- */
+.hud-map-settings {
+  position: absolute;
+  top: 9px;
+  left: 9px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 20px;
+  border-radius: 5px;
+  background: rgba(10, 12, 20, 0.9);
+  color: var(--ui-brass);
+  border: 1px solid var(--ui-brass-dim);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.hud-map-settings:hover {
+  color: #fff;
+  border-color: var(--ui-cyan);
+}
+
+.ui-settings {
+  width: 460px;
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+  background: var(--ui-panel);
+  font-size: 13px;
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(217, 180, 90, 0.3);
+  color: var(--ui-brass);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.settings-close {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  line-height: 22px;
+  font-size: 16px;
+  border-radius: 5px;
+  background: rgba(10, 12, 20, 0.9);
+  border: 1px solid var(--ui-brass-dim);
+  color: var(--ui-brass);
+  cursor: pointer;
+}
+
+.settings-close:hover {
+  color: #fff;
+  border-color: var(--ui-cyan);
+}
+
+.settings-tabs .inv-tab {
+  padding: 8px 4px;
+}
+
+.settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+}
+
+.settings-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-row > span {
+  color: var(--ui-muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.settings-row button,
+.settings-row select {
+  width: 100%;
+  pointer-events: auto;
+}
+
+.settings-controls {
+  margin: 0;
+  padding: 12px 16px;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 16px 14px;
+  border-top: 1px solid rgba(217, 180, 90, 0.2);
+}
+
+.talent-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-auto-rows: minmax(36px, 1fr);
+  gap: 4px;
+}
+
+.talent-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 5px;
+  border: 1px solid rgba(217, 180, 90, 0.25);
+  background:
+    radial-gradient(circle at 50% 45%, rgba(40, 52, 78, 0.55), rgba(8, 11, 19, 0.9) 75%);
+  cursor: default;
+  pointer-events: auto;
+}
+
+.talent-cell.hovered {
+  border-color: var(--ui-brass);
+  background: rgba(217, 180, 90, 0.1);
+}
+
+.talent-icon {
+  width: 30px;
+  height: 30px;
+  image-rendering: pixelated;
+  flex: none;
+}
+
+.talent-levels {
+  position: relative;
+  flex: 1;
+  height: 30px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ui-brass);
+  font-variant-numeric: tabular-nums;
+}
+
+.talent-level {
+  position: absolute;
+  left: 2px;
+  top: -1px;
+}
+
+.talent-slash {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--ui-muted);
+}
+
+.talent-base {
+  position: absolute;
+  right: 2px;
+  bottom: -1px;
+}
+
+.talent-total {
+  margin-top: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 8px;
+  border: 1px solid rgba(217, 180, 90, 0.25);
+  background: rgba(8, 11, 19, 0.8);
+  color: var(--ui-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.talent-total b {
+  color: var(--ui-brass);
+  font-size: 13px;
+}
+
+.talent-tooltip {
+  position: fixed;
+  z-index: 1000;
+  width: 270px;
+  padding: 6px 8px;
+  border: 1px solid rgba(217, 180, 90, 0.45);
+  background: rgba(8, 11, 19, 0.96);
+  font-size: 11.5px;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+.talent-tooltip-name {
+  color: var(--ui-brass);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.talent-tooltip-group {
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
 }

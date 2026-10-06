@@ -1,5 +1,6 @@
 import './style.css';
 import { createDefaultCatalog } from './catalog/catalog';
+import { materialFor } from './core/materials';
 import { COLOUR_PRESETS } from './core/palette';
 import type { SlotId } from './core/types';
 import { decodeShipState, encodeShipState } from './state/serialization';
@@ -9,6 +10,7 @@ import {
   withAttachment,
   withColours,
   withHull,
+  withMaterial,
   withRandomLoadout,
   type ShipState,
 } from './state/shipState';
@@ -54,6 +56,7 @@ const panel = new BuilderPanel(
     selectHull: (hullId) => store.update((state) => withHull(state, catalog.getHull(hullId))),
     setColours: (colours) => store.update((state) => withColours(state, colours)),
     applyPreset: (preset) => store.update((state) => withColours(state, preset.colours)),
+    setMaterial: (materialId) => store.update((state) => withMaterial(state, materialId)),
     fitAttachment: (slotId, attachmentId) =>
       store.update((state) => withAttachment(state, catalog, slotId, attachmentId)),
     randomiseLoadout: () => store.update((state) => withRandomLoadout(state, catalog)),
@@ -61,7 +64,7 @@ const panel = new BuilderPanel(
       const preset = COLOUR_PRESETS[Math.floor(Math.random() * COLOUR_PRESETS.length)];
       if (preset) store.update((state) => withColours(state, preset.colours));
     },
-    reset: () => store.update((state) => createShipState(catalog.getHull(state.hullId), state.colours)),
+    reset: () => store.update((state) => createShipState(catalog.getHull(state.hullId), state.colours, state.material)),
     copyShareLink: async () => {
       try {
         await navigator.clipboard.writeText(window.location.href);
@@ -130,7 +133,7 @@ function sessionShip(state: ShipState, name: string): SessionShip {
   const weaponMounts = resolveParts(state, catalog)
     .filter((part) => part.attachment.category === 'weapon' || part.attachment.id in WEAPON_PROFILES)
     .map((part) => ({ position: part.slot.position, weapon: weaponProfileFor(part.attachment.id) }));
-  return { name, hullName: `${hull.name} ${hull.role.toLowerCase()}`, surface: assembleFromState(state, catalog).mesh, colours: state.colours, weaponMounts };
+  return { name, hullName: `${hull.name} ${hull.role.toLowerCase()}`, surface: assembleFromState(state, catalog).mesh, colours: state.colours, material: state.material, weaponMounts };
 }
 
 /** Hand the screen to the flight session with the current build and a raider to fight. */
@@ -147,7 +150,7 @@ function enterFlight(): void {
     // The raider starts friendly: it holds fire until you shoot it, or until
     // you hang around within 70 units for a couple of seconds and it jumps you.
     npcs: [
-      { ...sessionShip(raider, 'Raider'), ...raiderPosition(map), stance: 'friendly', controller: new TurretAi({ ...TURRET_AI, ambushRange: 70, ambushDelay: 2 }) },
+      { ...sessionShip(raider, 'Raider'), ...raiderPosition(map), material: 'obsidian', stance: 'friendly', controller: new TurretAi({ ...TURRET_AI, ambushRange: 70, ambushDelay: 2 }) },
       // The Navigator: a guild ship parked in the top-right corner that you can talk to with Space.
       {
         ...sessionShip(navigatorShip, 'Navigator'),
@@ -233,6 +236,7 @@ function sync(state: ShipState, previous: ShipState | null): void {
   } else {
     scene.setColours(state.colours);
   }
+  if (previous === null || previous.material !== state.material) scene.setMaterial(materialFor(state.material));
 
   panel.render(state, ship, scene.shipTriangleCount);
   window.history.replaceState(null, '', `#${encodeShipState(state)}`);

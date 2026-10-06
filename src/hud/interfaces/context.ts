@@ -19,6 +19,8 @@ export interface InventoryTab {
   readonly label: string;
   readonly icon?: string;
   readonly Component: ComponentType;
+  /** Shown first when the panel opens; otherwise the first tab is. */
+  readonly default?: boolean;
 }
 
 /** Where the waypoint sits on the expanded map canvas (CSS px) and whether the drive can reach it. */

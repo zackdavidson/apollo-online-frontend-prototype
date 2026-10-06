@@ -38,6 +38,8 @@ import { createBoundary, createParallaxWorld, type ParallaxWorld } from './paral
 import { BACKGROUND_LAYER, OVERLAY_LAYER, Pixelator, type PixelScope } from './pixelate';
 import { ProjectileRenderer } from './projectileRenderer';
 import { RockRenderer } from './rockRenderer';
+import { DEFAULT_MATERIAL_ID, materialFor, type MaterialId } from '../core/materials';
+import { hullMapsLoaded, hullMapsReady } from '../render/hullMaterial';
 import { ShipActor, type ShipVisualSpec } from './shipActor';
 import { WarpTunnel } from './warpTunnel';
 
@@ -269,9 +271,21 @@ export class GameScene {
     this.beacons.setBeacons(beacons);
   }
 
-  /** A portrait of a ship surface for the HUD, rendered once like the item sprites. */
-  shipPortrait(surface: SurfaceMesh, colours: ShipColours): string {
-    return this.items.renderSurface(surface, colours, { yaw: 0.85, pitch: 0.5, zoom: 1.55 }, 128);
+  /**
+   * A portrait of a ship surface for the HUD, rendered once like the item
+   * sprites. If the material's tiles are still downloading the first portrait
+   * is plain and `onReady` gets a dressed one once they arrive.
+   */
+  shipPortrait(surface: SurfaceMesh, colours: ShipColours, material: MaterialId = DEFAULT_MATERIAL_ID, onReady?: (url: string) => void): string {
+    const definition = materialFor(material);
+    const framing = { yaw: 0.85, pitch: 0.5, zoom: 1.55 };
+    const url = this.items.renderSurface(surface, colours, framing, 128, definition);
+    if (onReady && !hullMapsLoaded(definition)) {
+      void hullMapsReady(definition).then(() => {
+        if (!this.disposed && hullMapsLoaded(definition)) onReady(this.items.renderSurface(surface, colours, framing, 128, definition));
+      });
+    }
+    return url;
   }
 
   /** Data URLs of every item's sprite, for DOM inventories and tooltips. */
@@ -414,7 +428,10 @@ export class GameScene {
     this.pixelator.render(this.scene, this.camera.camera);
   }
 
+  private disposed = false;
+
   dispose(): void {
+    this.disposed = true;
     this.resizeObserver.disconnect();
     for (const id of [...this.ships.keys()]) this.removeShip(id);
     this.world.dispose();
