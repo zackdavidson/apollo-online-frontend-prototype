@@ -327,6 +327,21 @@ body[data-mode='flight'] .flight {
   display: block;
 }
 
+.editor {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: #06080e;
+}
+
+body[data-mode='editor'] .app {
+  display: none;
+}
+
+body[data-mode='editor'] .editor {
+  display: block;
+}
+
 .flight-canvas {
   position: absolute;
   inset: 0;
@@ -2471,4 +2486,279 @@ body[data-mode='flight'] .flight {
 .talent-tooltip-group {
   letter-spacing: 0.04em;
   text-transform: lowercase;
+}
+
+/* ---- Map editor ---- */
+.map-editor {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-rows: 44px 1fr 26px;
+  grid-template-columns: 52px 1fr 360px;
+  grid-template-areas:
+    'head head head'
+    'tools canvas side'
+    'status status status';
+  color: var(--text);
+  font-size: 13px;
+}
+
+.map-editor-head {
+  grid-area: head;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.map-editor-head h1 {
+  margin: 0;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+}
+
+.map-editor-head .spacer {
+  flex: 1;
+}
+
+.map-editor-head input {
+  width: 220px;
+}
+
+.map-editor-tools {
+  grid-area: tools;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 6px;
+  background: var(--panel);
+  border-right: 1px solid var(--panel-border);
+}
+
+.map-editor-tool {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.map-editor-tool small {
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.map-editor-tool.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.map-editor-canvas-wrap {
+  grid-area: canvas;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.map-editor-scene {
+  position: absolute;
+  inset: 0;
+}
+
+.map-editor-scene.placing .flight-canvas {
+  cursor: crosshair;
+}
+
+.map-editor-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.map-editor-overview {
+  height: 300px;
+  flex: none;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.map-editor-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: default;
+  touch-action: none;
+}
+
+.map-editor-canvas.placing {
+  cursor: crosshair;
+}
+
+.map-editor-side {
+  grid-area: side;
+  overflow-y: auto;
+  padding: 10px 14px 20px;
+  background: var(--panel);
+  border-left: 1px solid var(--panel-border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.map-editor-side h2 {
+  margin: 10px 0 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.map-editor-side h2:first-child {
+  margin-top: 0;
+}
+
+.ed-field {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.ed-field > span {
+  color: var(--muted);
+}
+
+.ed-field input,
+.ed-field select {
+  width: 100%;
+  min-width: 0;
+}
+
+.ed-field input[type='checkbox'] {
+  width: auto;
+  justify-self: start;
+}
+
+.ed-field input[type='color'] {
+  width: 48px;
+  height: 26px;
+  padding: 2px;
+}
+
+.ed-inline {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.ed-inline input {
+  flex: 1;
+  min-width: 0;
+}
+
+.map-editor-side textarea {
+  width: 100%;
+  min-height: 220px;
+  resize: vertical;
+  font: 11px/1.4 ui-monospace, Menlo, monospace;
+  background: #0a0d16;
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+.map-editor-side textarea.dirty {
+  border-color: var(--accent);
+}
+
+.ed-error {
+  color: #ff8a8a;
+  font-size: 12px;
+}
+
+.map-editor-status {
+  grid-area: status;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 0 14px;
+  font-size: 11.5px;
+  color: var(--muted);
+  background: var(--panel);
+  border-top: 1px solid var(--panel-border);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.map-editor-status b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.ed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ed-row {
+  text-align: left;
+  padding: 5px 8px;
+  font-size: 12px;
+}
+
+.ed-row.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.ed-layer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  margin-top: 4px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.ed-layer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.ed-layer-head button {
+  padding: 1px 7px;
+  font-size: 11px;
+}
+
+.ed-swatch {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 4px;
 }

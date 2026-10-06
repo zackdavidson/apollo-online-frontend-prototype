@@ -23,6 +23,8 @@ export interface PanelActions {
   loadMapFile(file: File): Promise<string | null>;
   resetMap(): void;
   downloadMap(): void;
+  /** Open the map editor on the map that will fly next. */
+  openMapEditor(): void;
 }
 
 export interface PanelEvents {
@@ -248,11 +250,13 @@ export class BuilderPanel {
       this.mapStatus.textContent = '';
     });
     const download = button('Save map as JSON', () => this.actions.downloadMap());
+    const edit = button('Map editor', () => this.actions.openMapEditor());
+    edit.classList.add('primary');
     return section('Map', [
       el('p', { className: 'muted' }, ['Next flight: ', this.mapName]),
-      el('div', { className: 'button-row' }, [load, reset, download, fileInput]),
+      el('div', { className: 'button-row' }, [edit, load, reset, download, fileInput]),
       el('div', { className: 'button-row' }, [this.mapStatus]),
-      el('p', { className: 'muted', text: 'Maps are JSON: scenery, every rock by id, comet and objects (caches, beacons). Saving writes the explicit rock list, so a "generate" recipe is baked on load. See README, or ?map=name for public/maps/name.json.' }),
+      el('p', { className: 'muted', text: 'Maps are JSON: scenery, every rock by id, comet and objects (caches, beacons, gas clouds) and minimap markers. The editor places them on a canvas and reads or writes the same JSON. See README, or ?map=name for public/maps/name.json.' }),
     ]);
   }
 

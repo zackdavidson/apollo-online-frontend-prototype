@@ -1,18 +1,4 @@
-import {
-  AdditiveBlending,
-  Color,
-  DirectionalLight,
-  HemisphereLight,
-  NoToneMapping,
-  Plane,
-  Raycaster,
-  Scene,
-  Sprite,
-  SpriteMaterial,
-  Vector2,
-  Vector3,
-  WebGLRenderer,
-} from 'three';
+import { AdditiveBlending, Color, DirectionalLight, HemisphereLight, LineSegments, Material, NoToneMapping, Plane, Raycaster, Scene, Sprite, SpriteMaterial, Vector2, Vector3, WebGLRenderer } from 'three';
 import type { Beacon } from '../game/beacons';
 import type { Hazard } from '../game/hazards';
 import type { CometState } from '../game/comet';
@@ -90,7 +76,8 @@ export class GameScene {
   private readonly renderer: WebGLRenderer;
   private readonly pixelator: Pixelator;
   private readonly scene = new Scene();
-  private readonly world: ParallaxWorld;
+  private world: ParallaxWorld;
+  private boundary: LineSegments;
   private readonly ships = new Map<string, ShipActor>();
   private readonly rockRenderer = new RockRenderer();
   private readonly lootRenderer: LootRenderer;
@@ -145,10 +132,8 @@ export class GameScene {
 
     // The 2D backdrop lives on its own layer so it can stay sharp when only the 3D is pixelated.
     this.world = createParallaxWorld(createRng(options.seed), options.halfExtent, options.scenery);
-    for (const object of [...this.world.layers, createBoundary(options.halfExtent, options.boundaryColour)]) {
-      object.traverse((child) => child.layers.set(BACKGROUND_LAYER));
-      this.scene.add(object);
-    }
+    this.boundary = createBoundary(options.halfExtent, options.boundaryColour);
+    this.installWorld();
 
     this.effects = new EffectsSystem(createRng(options.seed + 1));
     this.cometVisual = new CometVisual(createRng(options.seed + 6), this.glowTexture);
@@ -181,6 +166,25 @@ export class GameScene {
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(container);
     this.resize();
+  }
+
+  /** Swap the backdrop and the sector edge for another map's, keeping everything else; the map editor calls this as scenery is edited. */
+  setWorld(options: Pick<SceneOptions, 'seed' | 'halfExtent' | 'scenery' | 'boundaryColour'>): void {
+    for (const layer of this.world.layers) this.scene.remove(layer);
+    this.world.dispose();
+    this.scene.remove(this.boundary);
+    this.boundary.geometry.dispose();
+    (this.boundary.material as Material).dispose();
+    this.world = createParallaxWorld(createRng(options.seed), options.halfExtent, options.scenery);
+    this.boundary = createBoundary(options.halfExtent, options.boundaryColour);
+    this.installWorld();
+  }
+
+  private installWorld(): void {
+    for (const object of [...this.world.layers, this.boundary]) {
+      object.traverse((child) => child.layers.set(BACKGROUND_LAYER));
+      this.scene.add(object);
+    }
   }
 
   /** The element to attach pointer handlers to. */
@@ -435,6 +439,8 @@ export class GameScene {
     this.resizeObserver.disconnect();
     for (const id of [...this.ships.keys()]) this.removeShip(id);
     this.world.dispose();
+    this.boundary.geometry.dispose();
+    (this.boundary.material as Material).dispose();
     this.rockRenderer.dispose();
     this.lootRenderer.dispose();
     this.items.dispose();

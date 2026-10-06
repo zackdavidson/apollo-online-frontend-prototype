@@ -16,12 +16,13 @@ import {
 } from './state/shipState';
 import { resolveParts } from './state/shipState';
 import { Store } from './state/store';
-import { FlightSession, type SessionShip } from './flight/flightSession';
+import { FlightSession, shipRadiusFor, type SessionShip } from './flight/flightSession';
 import { type MapDefinition, MapParseError, type ResolvedMap, parseMapDefinition, provingGroundMapDefinition, resolveMap } from './game/map';
 import { IdleController, TURRET_AI, TurretAi } from './game/controllers';
 import type { DialogueLine } from './hud/interfaces';
 import { fromMapCoords } from './game/mapCoords';
 import { WEAPON_PROFILES, weaponProfileFor } from './game/weapons';
+import { mountMapEditor, type MapEditorHandle } from './editor';
 import { SceneView } from './render/sceneView';
 import { BuilderPanel } from './ui/panel';
 
@@ -32,7 +33,8 @@ if (!firstHull) throw new Error('Catalog has no hulls');
 const viewport = document.getElementById('viewport');
 const panelRoot = document.getElementById('panel');
 const flightRoot = document.getElementById('flight');
-if (!viewport || !panelRoot || !flightRoot) throw new Error('Missing #viewport, #panel or #flight in index.html');
+const editorRoot = document.getElementById('editor');
+if (!viewport || !panelRoot || !flightRoot || !editorRoot) throw new Error('Missing #viewport, #panel, #flight or #editor in index.html');
 
 const initialState = decodeShipState(window.location.hash.slice(1), catalog) ?? createShipState(firstHull);
 const store = new Store<ShipState>(initialState);
@@ -78,6 +80,7 @@ const panel = new BuilderPanel(
     flyShip: () => enterFlight(),
     loadMapFile: async (file) => tryLoadMap(await file.text()),
     resetMap: () => setMap(provingGroundMapDefinition()),
+    openMapEditor: () => enterEditor(),
     // Saves the map that will fly next. A parsed map always holds every rock
     // explicitly (any "generate" recipe was expanded on load), so this is also
     // how an authored recipe gets baked into a server-ready file.
@@ -95,6 +98,7 @@ const panel = new BuilderPanel(
 );
 
 let flight: FlightSession | null = null;
+let editor: MapEditorHandle | null = null;
 let currentMap: MapDefinition = provingGroundMapDefinition();
 
 function setMap(map: MapDefinition): void {
@@ -206,6 +210,35 @@ function exitFlight(): void {
   if (!flight) return;
   flight.dispose();
   flight = null;
+  delete document.body.dataset['mode'];
+  scene.setActive(true);
+}
+
+/** The map editor takes the screen like flight does; it starts on the map that will fly next and hands back whatever it ends on. */
+function enterEditor(): void {
+  if (editor || flight) return;
+  scene.setActive(false);
+  document.body.dataset['mode'] = 'editor';
+  const ship = sessionShip(store.get(), 'you');
+  editor = mountMapEditor(editorRoot!, {
+    initial: currentMap,
+    ship: { surface: ship.surface, colours: ship.colours, material: ship.material, accent: ship.colours.trim, radius: shipRadiusFor(ship.surface) },
+    onFly: (map) => {
+      setMap(map);
+      exitEditor();
+      enterFlight();
+    },
+    onClose: (map) => {
+      setMap(map);
+      exitEditor();
+    },
+  });
+}
+
+function exitEditor(): void {
+  if (!editor) return;
+  editor.dispose();
+  editor = null;
   delete document.body.dataset['mode'];
   scene.setActive(true);
 }

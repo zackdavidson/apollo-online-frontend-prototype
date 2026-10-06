@@ -154,6 +154,32 @@ same `ResolvedMap` feeds both `WorldSim` (rocks, caches, beacons, comet) and
 `GameScene` (scenery). NPCs are deliberately not part of a map; they are
 spawned through `FlightSession.spawnNpc` so a server can own them.
 
+#### Map editor
+
+"Map editor" in the hangar's Map section opens a top-down editor on the
+map that will fly next (`src/editor/`). The main view is the flight scene
+itself (`GameScene`): the backdrop, 3D rocks, gas clouds, beacons, caches
+and your ship parked at the spawn, with marker icons, labels and the
+selection ring drawn over it. Left-click places whatever tool is active
+(rock, rock cluster, cache, beacon, gas cloud, icon, label, planet, nebula,
+sun, galactic band, spawn), the select tool clicks to select and drags to
+move, the wheel zooms, the right or middle button pans, Q/E tilt and C
+switches camera. Backdrop art is picked where it appears on screen (it sits
+deep below the ship plane and parallax shifts it), and the side panel's
+Scenery list selects any of it directly; the Stars section edits the star
+layers (kind, count, depth, tile, size, brightness) or applies a preset. A 2D overview
+in the side panel shows the whole map with a crosshair where the camera is
+looking; click it to look somewhere else. The side panel edits every field of the
+selected thing (ids, kinds, radii, respawn, colours, labels, icon names,
+`onMinimap`) plus the map's name, size, seed and comet; Delete removes,
+Ctrl+Z / Ctrl+Y undo and redo, Esc goes back to the select tool. The JSON
+section shows the live document: copy it, download it, load a file, start
+from a blank map or one of the built-ins, or paste JSON and apply it (errors
+name the offending path, as the parser does). Only comet tuning is JSON-only. "Fly this map" jumps straight
+into flight on it; "Done" returns to the hangar with it as the next map.
+The document operations are pure functions in `src/editor/mapDocument.ts`,
+so a server-side tool could reuse them.
+
 #### Gas clouds (area hazards)
 
 A `gas-cloud` object is a circle that damages every ship inside it: a tick

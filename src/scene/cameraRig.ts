@@ -26,6 +26,8 @@ export class CameraRig {
   private currentMode: CameraMode = 'perspective';
   private distance = 80;
   private tilt = 32;
+  private minDistance = MIN_DISTANCE;
+  private maxDistance = MAX_DISTANCE;
   private aspect = 1;
   private followX = 0;
   private followZ = 0;
@@ -68,11 +70,26 @@ export class CameraRig {
   }
 
   zoomBy(factor: number): void {
-    this.distance = clamp(this.distance * factor, MIN_DISTANCE, MAX_DISTANCE);
+    this.distance = clamp(this.distance * factor, this.minDistance, this.maxDistance);
+  }
+
+  setDistance(distance: number): void {
+    this.distance = clamp(distance, this.minDistance, this.maxDistance);
+  }
+
+  /** How far in and out the camera may go; flight keeps the defaults, the map editor pulls back much further. */
+  setDistanceRange(min: number, max: number): void {
+    this.minDistance = min;
+    this.maxDistance = max;
+    this.distance = clamp(this.distance, min, max);
   }
 
   tiltBy(degrees: number): void {
     this.tilt = clamp(this.tilt + degrees, MIN_TILT, MAX_TILT);
+  }
+
+  setTilt(degrees: number): void {
+    this.tilt = clamp(degrees, MIN_TILT, MAX_TILT);
   }
 
   snapTo(x: number, z: number): void {
