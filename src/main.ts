@@ -1,5 +1,7 @@
 import './style.css';
 import { createDefaultCatalog } from './catalog/catalog';
+import { GameConnection } from './client/connection';
+import { CLIENT_SIZES, SERVER_SIZES } from './client/opcodes';
 import { materialFor } from './core/materials';
 import { COLOUR_PRESETS } from './core/palette';
 import type { SlotId } from './core/types';
@@ -14,16 +16,18 @@ import {
   withRandomLoadout,
   type ShipState,
 } from './state/shipState';
-import { resolveParts } from './state/shipState';
 import { Store } from './state/store';
-import { FlightSession, shipRadiusFor, type SessionShip } from './flight/flightSession';
+import { FlightSession, type SandboxNpc } from './flight/flightSession';
+import { OnlineSession } from './flight/onlineSession';
 import { type MapDefinition, MapParseError, type ResolvedMap, parseMapDefinition, provingGroundMapDefinition, resolveMap } from './game/map';
 import { IdleController, TURRET_AI, TurretAi } from './game/controllers';
+import { shipRadiusFor, surfaceFor } from './game/loadout';
 import type { DialogueLine } from './hud/interfaces';
 import { fromMapCoords } from './game/mapCoords';
-import { WEAPON_PROFILES, weaponProfileFor } from './game/weapons';
 import { mountMapEditor, type MapEditorHandle } from './editor';
+import { connectWebSocket } from './net/webSocketTransport';
 import { SceneView } from './render/sceneView';
+import { showLoginDialog } from './ui/loginDialog';
 import { BuilderPanel } from './ui/panel';
 
 const catalog = createDefaultCatalog();
@@ -78,6 +82,7 @@ const panel = new BuilderPanel(
     toggleSlotMarkers: (visible) => scene.setSlotMarkersVisible(visible),
     toggleOutline: (visible) => scene.setOutlineVisible(visible),
     flyShip: () => enterFlight(),
+    playOnline: () => void enterOnline(),
     loadMapFile: async (file) => tryLoadMap(await file.text()),
     resetMap: () => setMap(provingGroundMapDefinition()),
     openMapEditor: () => enterEditor(),
@@ -97,7 +102,7 @@ const panel = new BuilderPanel(
   { onSlotHover: (slotId) => scene.highlightSlot(slotId) },
 );
 
-let flight: FlightSession | null = null;
+let flight: FlightSession | OnlineSession | null = null;
 let editor: MapEditorHandle | null = null;
 let currentMap: MapDefinition = provingGroundMapDefinition();
 
@@ -131,48 +136,58 @@ async function loadMapFromQuery(): Promise<void> {
   }
 }
 
-/** Turn a hangar build into the looks-plus-loadout bundle the flight session wants. */
-function sessionShip(state: ShipState, name: string): SessionShip {
-  const hull = catalog.getHull(state.hullId);
-  const weaponMounts = resolveParts(state, catalog)
-    .filter((part) => part.attachment.category === 'weapon' || part.attachment.id in WEAPON_PROFILES)
-    .map((part) => ({ position: part.slot.position, weapon: weaponProfileFor(part.attachment.id) }));
-  return { name, hullName: `${hull.name} ${hull.role.toLowerCase()}`, surface: assembleFromState(state, catalog).mesh, colours: state.colours, material: state.material, weaponMounts };
-}
-
-/** Hand the screen to the flight session with the current build and a raider to fight. */
+/** Hand the screen to the offline flight with the current build and the Proving Ground's NPCs. */
 function enterFlight(): void {
   if (flight) return;
   const state = store.get();
-  const raider = createShipState(catalog.getHull('hull-gunship'), { main: '#5a2d2d', trim: '#e8e0c9' });
-  const navigatorShip = createShipState(catalog.getHull('hull-hauler'), { main: '#2f6f4f', trim: '#e8e0c9' });
   scene.setActive(false);
   document.body.dataset['mode'] = 'flight';
   const map = resolveMap(currentMap);
   flight = new FlightSession(flightRoot!, {
-    player: sessionShip(state, `${catalog.getHull(state.hullId).name} (you)`),
-    // The raider starts friendly: it holds fire until you shoot it, or until
-    // you hang around within 70 units for a couple of seconds and it jumps you.
-    npcs: [
-      { ...sessionShip(raider, 'Raider'), ...raiderPosition(map), material: 'obsidian', stance: 'friendly', controller: new TurretAi({ ...TURRET_AI, ambushRange: 70, ambushDelay: 2 }) },
-      // The Navigator: a guild ship parked in the top-right corner that you can talk to with Space.
-      {
-        ...sessionShip(navigatorShip, 'Navigator'),
-        ...navigatorPosition(map),
-        heading: Math.PI * 1.25,
-        team: 'guild',
-        stance: 'friendly',
-        provokable: false,
-        invulnerable: true,
-        controller: new IdleController(),
-        respawnDelay: null,
-        accent: '#7fe3a0',
-        dialogue: { range: NAVIGATOR_TALK_RANGE, lines: NAVIGATOR_LINES },
-      },
-    ],
+    player: { name: `${catalog.getHull(state.hullId).name} (you)`, build: state },
+    npcs: provingGroundNpcs(map),
     map,
+    catalog,
     onExit: exitFlight,
   });
+}
+
+/** Log in through the gateway, then fly on the chosen game server. */
+async function enterOnline(): Promise<void> {
+  if (flight) return;
+  const login = await showLoginDialog();
+  if (!login || flight) return;
+  const state = store.get();
+  scene.setActive(false);
+  document.body.dataset['mode'] = 'flight';
+  const transport = connectWebSocket(login.serverUrl, { outbound: CLIENT_SIZES, inbound: SERVER_SIZES });
+  flight = new OnlineSession(flightRoot!, { connection: new GameConnection(transport), jwt: login.accessToken, build: state, catalog, onExit: exitFlight });
+}
+
+/** The sandbox's cast: a raider that ambushes you, and the Navigator to talk to. Server content, offline. */
+function provingGroundNpcs(map: ResolvedMap): SandboxNpc[] {
+  const raider = createShipState(catalog.getHull('hull-gunship'), { main: '#5a2d2d', trim: '#e8e0c9' }, 'obsidian');
+  const navigator = createShipState(catalog.getHull('hull-hauler'), { main: '#2f6f4f', trim: '#e8e0c9' });
+  return [
+    // The raider starts friendly: it holds fire until you shoot it, or until
+    // you hang around within 70 units for a couple of seconds and it jumps you.
+    { name: 'Raider', build: raider, ...raiderPosition(map), stance: 'friendly', controller: new TurretAi({ ...TURRET_AI, ambushRange: 70, ambushDelay: 2 }) },
+    // The Navigator: a guild ship parked in the top-right corner that you can talk to with Space.
+    {
+      name: 'Navigator',
+      build: navigator,
+      ...navigatorPosition(map),
+      heading: Math.PI * 1.25,
+      team: 'guild',
+      stance: 'friendly',
+      provokable: false,
+      invulnerable: true,
+      controller: new IdleController(),
+      respawnDelay: null,
+      accent: '#7fe3a0',
+      dialogue: { range: NAVIGATOR_TALK_RANGE, lines: NAVIGATOR_LINES },
+    },
+  ];
 }
 
 /**
@@ -219,10 +234,11 @@ function enterEditor(): void {
   if (editor || flight) return;
   scene.setActive(false);
   document.body.dataset['mode'] = 'editor';
-  const ship = sessionShip(store.get(), 'you');
+  const state = store.get();
+  const surface = surfaceFor(state, catalog);
   editor = mountMapEditor(editorRoot!, {
     initial: currentMap,
-    ship: { surface: ship.surface, colours: ship.colours, material: ship.material, accent: ship.colours.trim, radius: shipRadiusFor(ship.surface) },
+    ship: { surface, colours: state.colours, material: state.material, accent: state.colours.trim, radius: shipRadiusFor(surface) },
     onFly: (map) => {
       setMap(map);
       exitEditor();

@@ -54,6 +54,7 @@ export class WorldSim implements ControllerView {
   private readonly dropRng: Rng;
   private readonly poolSeed: number;
   private poolsCreated = 0;
+  private projectileIds = 0;
   /** Events raised between steps (by requests), flushed at the start of the next step. */
   private pending: GameEvent[] = [];
 
@@ -81,7 +82,7 @@ export class WorldSim implements ControllerView {
     if (this.ships.has(spec.id)) throw new Error(`Ship "${spec.id}" already exists`);
     const tuning: FlightTuning = { ...DEFAULT_TUNING, halfExtent: this.halfExtent, ...spec.tuning };
     const beamMounts = spec.weaponMounts.filter((mount) => mount.weapon.group === 'beam');
-    const pool = new ProjectilePool(spec.weaponMounts, createRng(this.poolSeed + this.poolsCreated++));
+    const pool = new ProjectilePool(spec.weaponMounts, createRng(this.poolSeed + this.poolsCreated++), () => ++this.projectileIds);
     const ship: ShipEntity = {
       spec,
       tuning,

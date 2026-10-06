@@ -1,33 +1,38 @@
 import { describe, expect, it } from 'vitest';
+import { EntityType, EXAMINE_OPTION, HUD_INTERFACE_IDS } from '../client/definitions';
 import { optionsFor } from './actions';
-import { rockFromSpec } from './rocks';
 
 describe('optionsFor', () => {
-  it('puts the default first and names the target', () => {
-    const ground = optionsFor({ kind: 'ground', pickup: { id: 7, kind: 'iron-ore', count: 2, x: 0, z: 0, life: 10, phase: 0, armed: true } });
+  it('numbers options from the definitions and sends the option picked', () => {
+    const ground = optionsFor({ kind: 'obj', item: { id: 7, kind: 'iron-ore', count: 2 } });
     expect(ground.map((o) => o.label)).toEqual(['Take', 'Examine']);
-    expect(ground[0]).toMatchObject({ target: 'Iron ore × 2', action: { type: 'take', pickupId: 7 } });
-    expect(ground[1]!.action).toMatchObject({ type: 'examine' });
+    expect(ground[0]).toMatchObject({ target: 'Iron ore × 2', message: { type: 'op-obj', option: 1, index: 7 } });
+    expect(ground[1]!.message).toEqual({ type: 'op-obj', option: EXAMINE_OPTION, index: 7 });
 
-    const rock = optionsFor({ kind: 'rock', rock: rockFromSpec({ id: 'r', kind: 'crystal', x: 0, z: 0, radius: 3, respawnDelay: null }) });
+    const rock = optionsFor({ kind: 'rock', rock: { id: 'rock-0001', kind: 'crystal' } });
     expect(rock.map((o) => o.label)).toEqual(['Mine', 'Examine']);
-    expect(rock[0]!.action).toEqual({ type: 'mine', rockId: 'r' });
-    expect(rock[1]!.action).toMatchObject({ type: 'examine', text: expect.stringContaining('crystal and stone') });
+    expect(rock[0]!.message).toEqual({ type: 'op-loc', option: 1, locId: 'rock-0001' });
+    expect(rock[0]!.target).toBe('Crystal rock');
+
+    expect(optionsFor({ kind: 'npc', index: 3, entityType: EntityType.COMET, name: 'Comet', inTalkRange: false })[0]!.message).toEqual({ type: 'op-npc', option: 1, index: 3 });
   });
 
   it('changes with where the item is: hold versus fitted', () => {
-    const held = optionsFor({ kind: 'inventory', item: 'ice', count: 4 });
+    const held = optionsFor({ kind: 'held', item: 'ice', count: 4, slot: 2 });
     expect(held.map((o) => o.label)).toEqual(['Examine', 'Drop']);
-    expect(held[1]!.action).toEqual({ type: 'drop', item: 'ice', count: 4 });
+    expect(held[1]!.message).toEqual({ type: 'op-held', option: 1, item: 'ice', slot: 2 });
 
     const fitted = optionsFor({ kind: 'equipped', itemId: 'mining-laser', group: 'beam' });
     expect(fitted.map((o) => o.label)).toEqual(['Select', 'Examine']);
-    expect(fitted[0]).toMatchObject({ target: 'Beam (Mining Laser)', action: { type: 'select-group', group: 'beam' } });
+    expect(fitted[0]).toMatchObject({ target: 'Beam (Mining Laser)', message: { type: 'if-button', interfaceId: HUD_INTERFACE_IDS.weapons, button: 2 } });
   });
 
-  it('offers Talk to only for talkable ships and nothing silly for the player', () => {
-    const ship = { spec: { id: 'n', name: 'Navigator', hullName: 'Barge hauler', invulnerable: true }, stance: 'friendly' } as never;
-    expect(optionsFor({ kind: 'ship', ship, talkable: true, isPlayer: false }).map((o) => o.label)).toEqual(['Talk to', 'Examine']);
-    expect(optionsFor({ kind: 'ship', ship, talkable: false, isPlayer: true }).map((o) => o.label)).toEqual(['Examine']);
+  it('offers Talk-to only within range, and nothing but Examine for players', () => {
+    const near = optionsFor({ kind: 'npc', index: 9, entityType: EntityType.SHIP, name: 'Navigator', inTalkRange: true });
+    expect(near.map((o) => o.label)).toEqual(['Talk-to', 'Examine']);
+    const far = optionsFor({ kind: 'npc', index: 9, entityType: EntityType.SHIP, name: 'Navigator', inTalkRange: false });
+    expect(far.map((o) => o.label)).toEqual(['Examine']);
+    expect(optionsFor({ kind: 'player', index: 1, name: 'Pilot', isSelf: true }).map((o) => o.label)).toEqual(['Examine']);
+    expect(optionsFor({ kind: 'beacon', beacon: { id: 'b', label: 'East gate' } }).map((o) => o.label)).toEqual(['Examine']);
   });
 });

@@ -10,6 +10,8 @@ export interface WeaponMount {
 }
 
 export interface Projectile {
+  /** Stable id so a server can name the shot on the wire (add, steer, remove). */
+  readonly id: number;
   x: number;
   y: number;
   z: number;
@@ -58,6 +60,12 @@ export function aimDirection(x: number, z: number, heading: number, aim: AimPoin
     if (distance >= MIN_AIM_DISTANCE) return [dx / distance, dz / distance];
   }
   return forwardVector(heading);
+}
+
+let projectileIds = 0;
+/** Default id source: unique for the lifetime of the page. */
+function globalProjectileId(): number {
+  return ++projectileIds;
 }
 
 /** Fallback muzzle when a ship has no weapons fitted. */
@@ -111,6 +119,8 @@ export class ProjectilePool {
   constructor(
     mounts: readonly WeaponMount[],
     private readonly rng: Rng = Math.random,
+    /** Hands out projectile ids; share one source between pools so ids are unique across a world. */
+    private readonly nextId: () => number = globalProjectileId,
   ) {
     const projectileMounts = mounts.filter((mount) => mount.weapon.group !== 'beam');
     this.mounts = projectileMounts.length > 0 || mounts.length > 0 ? projectileMounts : [DEFAULT_MOUNT];
@@ -210,7 +220,7 @@ export class ProjectilePool {
       const [fx, fz] = forwardVector(baseAngle + offset);
       const speed = mount.weapon.speed * (pellets > 1 ? 0.85 + this.rng() * 0.3 : 1);
       const [vx, vz] = launchVelocity(fx, fz, speed, state.vx, state.vz);
-      this.projectiles.push({ x, y: mount.position[1], z, vx, vz, life: mount.weapon.lifetime, weapon: mount.weapon });
+      this.projectiles.push({ id: this.nextId(), x, y: mount.position[1], z, vx, vz, life: mount.weapon.lifetime, weapon: mount.weapon });
     }
     return [{ mount, x, z }];
   }

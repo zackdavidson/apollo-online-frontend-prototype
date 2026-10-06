@@ -19,6 +19,8 @@ export interface PanelActions {
   toggleSlotMarkers(visible: boolean): void;
   toggleOutline(visible: boolean): void;
   flyShip(): void;
+  /** Log in through the gateway and fly on a game server. */
+  playOnline(): void;
   /** Load a map definition from a JSON file; resolves to an error message or null. */
   loadMapFile(file: File): Promise<string | null>;
   resetMap(): void;
@@ -147,10 +149,13 @@ export class BuilderPanel {
   private buildHeader(): HTMLElement {
     const fly = button('Fly this ship', () => this.actions.flyShip());
     fly.classList.add('primary', 'fly-button');
+    const online = button('Play online', () => this.actions.playOnline());
+    online.classList.add('fly-button');
     return el('header', { className: 'panel-header' }, [
       el('h1', { text: 'Voxel Shipyard' }),
       el('p', { className: 'muted', text: 'Drag to orbit, scroll to zoom. Click a slot marker in the viewport to cycle parts.' }),
       fly,
+      online,
     ]);
   }
 

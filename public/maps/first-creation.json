@@ -1,0 +1,176 @@
+{
+  "version": 1,
+  "name": "First Creation",
+  "size": 1000,
+  "seed": 373747,
+  "spawn": {
+    "x": 500,
+    "y": 500,
+    "heading": 0
+  },
+  "scenery": {
+    "stars": [
+      {
+        "kind": "field",
+        "depth": -3200,
+        "tile": 5000,
+        "count": 4680,
+        "sizeWorld": 14,
+        "sizePx": 1.6,
+        "brightness": 0.63
+      },
+      {
+        "kind": "clusters",
+        "depth": -3800,
+        "tile": 6000,
+        "count": 2520,
+        "clusters": 7,
+        "sizeWorld": 17,
+        "sizePx": 1.8,
+        "brightness": 0.81
+      },
+      {
+        "kind": "field",
+        "depth": -4200,
+        "tile": 6500,
+        "count": 1620,
+        "sizeWorld": 25,
+        "sizePx": 2.4,
+        "brightness": 1.03
+      },
+      {
+        "kind": "field",
+        "depth": -5200,
+        "tile": 8000,
+        "count": 324,
+        "sizeWorld": 42,
+        "sizePx": 3.4,
+        "brightness": 1.5
+      }
+    ],
+    "planets": [
+      {
+        "art": "planet-gas-01",
+        "x": 265.93,
+        "y": 715.33,
+        "depth": -3300,
+        "radius": 101,
+        "rotation": -0.4
+      },
+      {
+        "art": "moon-01",
+        "x": 363.19,
+        "y": 622.54,
+        "depth": -3400,
+        "radius": 31,
+        "rotation": 0
+      },
+      {
+        "art": "planet-ice-01",
+        "x": -110.17,
+        "y": 379.31,
+        "depth": -1800,
+        "radius": 181,
+        "rotation": -1.3
+      }
+    ],
+    "sun": {
+      "x": 323.4,
+      "y": 1333.55,
+      "depth": -4000,
+      "size": 1000
+    },
+    "nebulae": [
+      {
+        "art": "nebula-02",
+        "x": 960.55,
+        "y": 1069.53,
+        "depth": -3000,
+        "size": 3100,
+        "tint": "#df1616",
+        "opacity": 0.35,
+        "rotation": 1.2
+      },
+      {
+        "art": "nebula-01",
+        "x": 622.61,
+        "y": 410.49,
+        "depth": -3000,
+        "size": 6000,
+        "tint": "#6a3fb0",
+        "opacity": 0.5,
+        "rotation": 0
+      },
+      {
+        "art": "nebula-03",
+        "x": 26.43,
+        "y": 314.7,
+        "depth": -3000,
+        "size": 2850,
+        "tint": "#0400ff",
+        "opacity": 0.85,
+        "rotation": 0
+      },
+      {
+        "art": "nebula-02",
+        "x": 338.08,
+        "y": 1313.69,
+        "depth": -4000,
+        "size": 600,
+        "tint": "#ff6600",
+        "opacity": 1,
+        "rotation": 0
+      },
+      {
+        "art": "nebula-01",
+        "x": 4753.05,
+        "y": -2830.56,
+        "depth": -11000,
+        "size": 6000,
+        "tint": "#00bfff",
+        "opacity": 0.15,
+        "rotation": 0
+      }
+    ],
+    "band": {
+      "art": "nebula-03",
+      "x": 598.92,
+      "y": 488.38,
+      "depth": -1500,
+      "width": 1100,
+      "height": 3100,
+      "tint": "#40ea2a",
+      "opacity": 0.9,
+      "rotation": 2.25
+    }
+  },
+  "rocks": [
+    {
+      "id": "rock-0001",
+      "x": 575.41,
+      "y": 513.59,
+      "kind": "giant",
+      "radius": 30,
+      "respawn": 120
+    }
+  ],
+  "comet": {
+    "maxHp": 2400,
+    "radius": 6,
+    "speed": 14,
+    "startDistance": 900,
+    "exitMargin": 300,
+    "respawnDelay": 25,
+    "chunkEvery": 120,
+    "chunkCrystalChance": 0.35,
+    "finalDrops": {
+      "ice": 40,
+      "crystal": 14,
+      "iron-ore": 8
+    },
+    "enabled": false,
+    "firstNearStart": true
+  },
+  "objects": [],
+  "markers": []
+}
